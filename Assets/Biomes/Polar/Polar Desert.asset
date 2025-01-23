@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Polar Desert
   m_EditorClassIdentifier: 
   minTemperature: 0
-  maxTemperature: 0.1
+  maxTemperature: 0.2
   minMoisture: 0
-  maxMoisture: 1
+  maxMoisture: 0.3
   minAltitude: 0
   maxAltitude: 0
   fertility: 0.01

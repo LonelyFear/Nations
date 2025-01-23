@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   minTemperature: 0.7
   maxTemperature: 1
-  minMoisture: 0.2
+  minMoisture: 0.3
   maxMoisture: 0.4
   minAltitude: 0
   maxAltitude: 0

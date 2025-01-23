@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd483347c7c90924e83eaeaee1ffe137, type: 3}
   m_Name: Boreal Wet Forest
   m_EditorClassIdentifier: 
-  minTemperature: 0.1
+  minTemperature: 0.2
   maxTemperature: 0.4
-  minMoisture: 0.7
+  minMoisture: 0.6
   maxMoisture: 1
   minAltitude: 0
   maxAltitude: 0

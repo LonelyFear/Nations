@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Polar Glacier
   m_EditorClassIdentifier: 
   minTemperature: 0
-  maxTemperature: 0.1
-  minMoisture: 0
+  maxTemperature: 0.2
+  minMoisture: 0.3
   maxMoisture: 1
   minAltitude: 0
   maxAltitude: 0

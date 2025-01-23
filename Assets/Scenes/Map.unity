@@ -633,7 +633,7 @@ MonoBehaviour:
   seaIceBiome: {fileID: 11400000, guid: 67994cab12ba58a408f74b8bc6a62c63, type: 2}
   defaultBiome: {fileID: 11400000, guid: 7bdeed2c0c6cd5e4e86e33d1940a3e9d, type: 2}
   moistureOffset: 0
-  tempOffset: -0.1
+  tempOffset: 0
 --- !u!4 &184318060
 Transform:
   m_ObjectHideFlags: 0

@@ -15,7 +15,7 @@ MonoBehaviour:
   minTemperature: 0.4
   maxTemperature: 0.7
   minMoisture: 0
-  maxMoisture: 0.2
+  maxMoisture: 0.3
   minAltitude: 0
   maxAltitude: 0
   fertility: 0.2
