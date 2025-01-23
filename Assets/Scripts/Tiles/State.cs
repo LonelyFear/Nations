@@ -87,20 +87,19 @@ public class State
 
     public void AddTile(Vector3Int pos){
         Tile tile = tileManager.getTile(pos);
-        if (tiles.Count < 1 && tile.tileData.anarchy){
+        if (tiles.Count < 1 && tile.anarchy){
             capital = tile;
             rulingPop = tile.pops[0];
-            rulingPop.status = PopManager.PopStates.SETTLED;
         }
         
-        tile.tileData.anarchy = false;
+        tile.anarchy = false;
         if (tile.state != null){
             tile.state.RemoveTile(pos);
         }
         tiles.Add(tile);
 
-        ChangePopulation(tile.tileData.population);
-        workforce += tile.tileData.workforce;
+        ChangePopulation(tile.population);
+        workforce += tile.workforce;
 
         tile.state = this;
         tileManager.anarchy.Remove(tile);
@@ -114,11 +113,11 @@ public class State
         if (tiles.Contains(tile)){
             tiles.Remove(tile);
 
-            ChangePopulation(-1 * tile.tileData.population);
-            workforce -= tile.tileData.workforce;
+            ChangePopulation(-1 * tile.population);
+            workforce -= tile.workforce;
 
             tile.state = null;
-            tile.tileData.anarchy = true;
+            tile.anarchy = true;
 
             tileManager.anarchy.Add(tile);
 
@@ -279,7 +278,7 @@ public class State
 
         float distanceFactor = 1f;
         if (!borderingStates.Contains(state)){
-            distanceFactor = 1 / (1 + Vector3Int.Distance(state.capital.tileData.tilePos, capital.tileData.tilePos));
+            distanceFactor = 1 / (1 + Vector3Int.Distance(state.capital.tilePos, capital.tilePos));
         }
         percievedThreat = ((armyFactor + techFactor + sizeFactor) / 3f) * distanceFactor * 100f;
 
@@ -341,7 +340,7 @@ public class State
             capital = null;
             if (tiles.Count > 0){
                 capital = tiles[Random.Range(0, tiles.Count - 1)];
-                tileManager.updateColor(capital.tileData.tilePos);
+                tileManager.updateColor(capital.tilePos);
             }
             
         }
@@ -364,7 +363,7 @@ public class State
                 break;
         }
         foreach (Tile tile in tiles){
-            tileManager.updateColor(tile.tileData.tilePos);
+            tileManager.updateColor(tile.tilePos);
         }
     }
 

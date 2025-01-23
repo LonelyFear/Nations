@@ -12,10 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd483347c7c90924e83eaeaee1ffe137, type: 3}
   m_Name: Tropical Desert
   m_EditorClassIdentifier: 
-  temperature: 0.9
-  moisture: 0.2
-  water: 0
-  claimable: 1
+  minTemperature: 0.7
+  maxTemperature: 1
+  minMoisture: 0
+  maxMoisture: 0.2
+  minAltitude: 0
+  maxAltitude: 0
   fertility: 0.2
-  navigability: 0.1
-  biomeColor: {r: 0.83396226, g: 0.79305094, b: 0.6089498, a: 1}
+  color: {r: 0.78867924, g: 0.7700469, b: 0.59969383, a: 1}
+  terrainType: 0

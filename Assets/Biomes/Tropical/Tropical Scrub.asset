@@ -12,10 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd483347c7c90924e83eaeaee1ffe137, type: 3}
   m_Name: Tropical Scrub
   m_EditorClassIdentifier: 
-  temperature: 0.9
-  moisture: 0.4
-  water: 0
-  claimable: 1
+  minTemperature: 0.7
+  maxTemperature: 1
+  minMoisture: 0.2
+  maxMoisture: 0.4
+  minAltitude: 0
+  maxAltitude: 0
   fertility: 0.8
-  navigability: 0.7
-  biomeColor: {r: 0.5735024, g: 0.6830188, b: 0.3595514, a: 1}
+  color: {r: 0.46292666, g: 0.5686275, b: 0.3684706, a: 1}
+  terrainType: 0

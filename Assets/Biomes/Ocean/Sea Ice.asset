@@ -12,10 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd483347c7c90924e83eaeaee1ffe137, type: 3}
   m_Name: Sea Ice
   m_EditorClassIdentifier: 
-  temperature: 0
-  moisture: 0
-  water: 1
-  claimable: 0
+  minTemperature: 0
+  maxTemperature: 0.15
+  minMoisture: 0
+  maxMoisture: 0
+  minAltitude: 0
+  maxAltitude: 0
   fertility: 0
-  navigability: 0.5
-  biomeColor: {r: 0.91186523, g: 0.93249565, b: 0.949, a: 1}
+  color: {r: 1, g: 1, b: 1, a: 1}
+  terrainType: 2

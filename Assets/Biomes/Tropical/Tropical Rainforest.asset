@@ -12,10 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd483347c7c90924e83eaeaee1ffe137, type: 3}
   m_Name: Tropical Rainforest
   m_EditorClassIdentifier: 
-  temperature: 0.9
-  moisture: 0.9
-  water: 0
-  claimable: 1
+  minTemperature: 0.7
+  maxTemperature: 1
+  minMoisture: 0.7
+  maxMoisture: 1
+  minAltitude: 0
+  maxAltitude: 0
   fertility: 0.5
-  navigability: 0.6
-  biomeColor: {r: 0.3828825, g: 0.7283019, b: 0.2349804, a: 1}
+  color: {r: 0.32497892, g: 0.625, b: 0.056874976, a: 1}
+  terrainType: 0

@@ -12,10 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd483347c7c90924e83eaeaee1ffe137, type: 3}
   m_Name: Boreal Wet Forest
   m_EditorClassIdentifier: 
-  temperature: 0.3
-  moisture: 0.9
-  water: 0
-  claimable: 1
+  minTemperature: 0.1
+  maxTemperature: 0.4
+  minMoisture: 0.7
+  maxMoisture: 1
+  minAltitude: 0
+  maxAltitude: 0
   fertility: 0.3
-  navigability: 0.3
-  biomeColor: {r: 0.22985399, g: 0.5773585, b: 0.35396278, a: 1}
+  color: {r: 0.12595294, g: 0.39607844, b: 0.21403736, a: 1}
+  terrainType: 0

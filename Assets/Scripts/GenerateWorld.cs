@@ -31,20 +31,24 @@ public class GenerateWorld : MonoBehaviour
     public float[] weights = new float[4];
 
     [Header("Terrain Settings")]
-
+    /*
     [SerializeField] Color oceanColor;
     [SerializeField] Color hotColor;
     [SerializeField] Color temperateColor;
     [SerializeField] Color coolColor;
     [SerializeField] Color moistColor;
     [SerializeField] Color dryColor;
-
+    */
+    [SerializeField]
+    Biome[] landBiomes;
+    [SerializeField] Biome oceanBiome;
+    [SerializeField] Biome seaIceBiome;
+    [SerializeField] Biome defaultBiome;
     [Range(-0.5f, 0.5f)]
     [SerializeField]  float moistureOffset;
     [Range(-0.5f, 0.5f)]
     [SerializeField]  float tempOffset;
     [Range(0f, 1f)]
-    [SerializeField] float freezingTemp;
 
     float landTiles = 0;
     public Dictionary<Vector3Int, Tile> tiles = new Dictionary<Vector3Int, Tile>();
@@ -104,10 +108,10 @@ public class GenerateWorld : MonoBehaviour
     }
 
     float getMoisture(int x, int y){
-        float clouds = getNoise(x,y, 0.05f, noiseSeed + 642);
-        float systems = getNoise(x,y, 0.25f, noiseSeed + 753);
-        float seas = getNoise(x,y, 0.75f, noiseSeed + 257);
-        float shape = getNoise(x, y, 1f, noiseSeed);
+        float clouds = getNoise(x,y, 0.01f, noiseSeed + 642);
+        float systems = getNoise(x,y, 0.2f, noiseSeed + 753);
+        float seas = getNoise(x,y, 0.5f, noiseSeed + 257);
+        float shape = getNoise(x, y, 0.75f, noiseSeed);
 
         float totalNoise = (shape * 0.6f) + (seas * 0.2f) + (systems * 0.15f) + (clouds * 0.05f) + moistureOffset;
         return totalNoise;
@@ -145,12 +149,14 @@ public class GenerateWorld : MonoBehaviour
                 
                 // Instantiates a tile
                 Tile newTile = new Tile();
-                newTile.tileData.terrain = SetTerrain(x,y);
 
 
                 // Adds the tile to the tile manager
+                
+
+                SetBiome(x, y, newTile);
+                
                 tiles.Add(cellPos, newTile);
-                GetComponent<TileManager>().tileDatas.Add(newTile.tileData);
             }
         }
         FinalChecks();
@@ -169,79 +175,72 @@ public class GenerateWorld : MonoBehaviour
             Vector3Int pos = entry.Key;
             for (int ox = -1; ox <= 1; ox++){
                 for (int oy = -1; oy <= 1; oy++){
-                    if (getTile(pos + new Vector3Int(ox, oy)) != null && getTile(pos + new Vector3Int(ox, oy)).tileData.terrain.water){
-                        tile.tileData.coastal = true;
+                    if (getTile(pos + new Vector3Int(ox, oy)) != null && getTile(pos + new Vector3Int(ox, oy)).biome.terrainType == BiomeTerrainType.WATER){
+                        tile.coastal = true;
                         break;
                     }
                 }
             }
         }        
     }
-    Terrain SetTerrain(int x, int y){
+    void SetBiome(int x, int y, Tile tile){
 
-        float height = getHeight(x,y);
+        float altitude = getHeight(x,y);
         float temp = getTemp(x,y);
         float moisture = getMoisture(x,y);
         float seaLevel = preset.oceanThreshold;
-        bool water = false;
+
         Color color;
+        Biome biome;
 
         // If we are below the ocean threshold
-        if (height <= seaLevel){
-            water = true;
-            // terrain.color = (oceanColor * (height/oceanThreshold)) + (Color.black * (1 - (height/oceanThreshold)));
-            color = Color.Lerp(Color.black, oceanColor, height/seaLevel);
-            if (temp <= freezingTemp){
-                color = oceanColor * 0.05f + Color.white * 0.95f;
+        if (altitude <= seaLevel){
+            biome = oceanBiome;
+            color = Color.Lerp(Color.black, biome.color, altitude/seaLevel);
+            if (temp <= seaIceBiome.maxTemperature){
+                biome = seaIceBiome;
+                color = biome.color;
             }
         } else {
-            water = false;
             landTiles++;
-            // Moisture
-            float minMoist = 0.3f;
-            float maxMoist = 0.7f;
-            Color moistureColor = Color.Lerp(dryColor, moistColor, (moisture - minMoist) / (maxMoist - minMoist));
-            if (moisture < minMoist){
-                moistureColor = dryColor;
-            } else if (moisture > maxMoist){
-                moistureColor = moistColor;
+            biome = defaultBiome;
+            foreach (Biome potentialBiome in landBiomes){
+                bool withinTemp =  temp >= potentialBiome.minTemperature && temp < potentialBiome.maxTemperature;
+                bool withinMoist = moisture >= potentialBiome.minMoisture && moisture < potentialBiome.maxMoisture;
+                bool withinAlt = true; // Mathf.Clamp01((altitude - seaLevel) / (1f - seaLevel)) >= potentialBiome.minAltitude && Mathf.Clamp01((altitude - seaLevel) / (1f - seaLevel)) < potentialBiome.maxAltitude
+                if (withinAlt && withinMoist && withinTemp){
+                    biome = potentialBiome;
+                    break;
+                }
             }
-            color = moistureColor;
-
-            // Temp
-            Color tempColor;
-            if (temp <= freezingTemp){
-                tempColor = coolColor;
-            }
-            else if (temp <= 0.5){
-                tempColor = Color.Lerp(coolColor, temperateColor, (temp - 0.2f) / 0.3f);
-            } else {
-                tempColor = Color.Lerp(temperateColor, hotColor, (temp - 0.5f) / 0.5f);
-            }
-            color = Color.Lerp(color, tempColor, 0.2f);
-
-            // Ice
-            if (temp <= freezingTemp * 1.2f){
-                color = color * 0.1f + Color.white * 0.9f;
-            }
+            color = biome.color;
         }
-        float fertility = 0;
-        if (!water){
-            fertility = CalcFertility(height, moisture, temp);
+
+        switch (biome.terrainType){
+            case BiomeTerrainType.LAND:
+                tile.claimable = true;
+                break;
+            case BiomeTerrainType.WATER:
+                tile.claimable = false;
+                break;
+            case BiomeTerrainType.ICE:
+                tile.claimable = true;
+                break;
         }
+        //float fertility = CalcFertility(height, moisture, temp);
         
-        Terrain terrain = new Terrain(){
-            fertility = fertility,
-            height = height,
-            moisture = moisture,
-            temperature = temp,
-            water = water,
-            claimable = !water,
-            color = color
-        };
-
-        return terrain;
+        //if (water){
+            //fertility = 0;
+        //}
+    
+        tile.terrainColor = color;
+        tile.biome = biome;
+        tile.fertility = biome.fertility;
+        tile.altitude = altitude;
+        tile.temperature = temp;
+        tile.moisture = moisture;
     }
+    /*
     float CalcFertility(float height, float moisture, float temperature){
         float seaLevel = preset.oceanThreshold;
 
@@ -271,4 +270,5 @@ public class GenerateWorld : MonoBehaviour
 
         return fertility;
     }
+    */
 }

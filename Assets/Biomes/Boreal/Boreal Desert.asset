@@ -12,10 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd483347c7c90924e83eaeaee1ffe137, type: 3}
   m_Name: Boreal Desert
   m_EditorClassIdentifier: 
-  temperature: 0.3
-  moisture: 0.2
-  water: 0
-  claimable: 1
+  minTemperature: 0.1
+  maxTemperature: 0.4
+  minMoisture: 0
+  maxMoisture: 0.3
+  minAltitude: 0
+  maxAltitude: 0
   fertility: 0.1
-  navigability: 0.1
-  biomeColor: {r: 0.7283019, g: 0.7214429, b: 0.53179777, a: 1}
+  color: {r: 0.7295262, g: 0.7660377, b: 0.58825916, a: 1}
+  terrainType: 0

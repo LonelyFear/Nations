@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Security.Cryptography;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
@@ -17,44 +19,85 @@ public class Tile
     public bool frontier;
     public bool nationalBorder;
     public List<State> borderingStates = new List<State>();
-    public List<Tile> borderingTiles = new List<Tile>();
+    public Tile[] borderingTiles = new Tile[0];
+    public Vector3Int[] borderingPositions = new Vector3Int[0];
     // Population
-    public List<Pop> pops = new List<Pop>();
+    public NativeList<Pop> pops = new NativeList<Pop>(Allocator.Persistent);
     public const int maxPops = 50;
 
     // Stats & Data
     public Pop rulingPop;
-    public TileStruct tileData = new TileStruct();
+    public int population;
+    public int maxPopulation;
+    public int workforce;
+    public Culture rulingCulture;
+    public Culture majorityCulture;
+    public Tech tech;
+    public float development;
+    public Vector3Int tilePos;
+    public bool coastal;
+    public bool anarchy;
+
+    // Terrain Stats
+    public bool claimable;
+    public Biome biome;
+    public Color terrainColor;
+    public float altitude;
+    public float temperature;
+    public float moisture;
+    public float fertility;
 
     public void Tick(){
         GetMaxPopulation();
-        if (tileData.population > 600){
-            float developmentIncrease = (tileData.population + 0.001f) / 1000000f;
+        if (population > 600){
+            float developmentIncrease = (population + 0.001f) / 1000000f;
             //Debug.Log(developmentIncrease);
-            tileData.development += developmentIncrease;
-            if (tileData.development > 1){
-                tileData.development = 1f;
+            development += developmentIncrease;
+            if (development > 1){
+                development = 1f;
             }
             //Debug.Log(development);
         };
-        if (tileData.population >= 50 && state == null && !tileData.anarchy){ 
-            tileManager.addAnarchy(tileData.tilePos);
-        } else if (tileData.population < 50 && tileData.anarchy){
-            tileManager.RemoveAnarchy(tileData.tilePos);
+        if (population >= 50 && state == null && !anarchy){ 
+            tileManager.addAnarchy(tilePos);
+        } else if (population < 50 && anarchy){
+            tileManager.RemoveAnarchy(tilePos);
         }
 
-        if (tileData.changeAmount != 0){
-            ChangePopulation(tileData.changeAmount);
+        if (biome.terrainType != BiomeTerrainType.WATER){
+            //Debug.Log(population);
+            for (int i = 0; i < pops.Length; i++){
+                Pop pop = pops[i];
+                float birthRate = pop.birthRate;
+                if (population > maxPopulation){
+                    birthRate *= 0.75f;
+                }
+                if (pop.size < 2){
+                    birthRate = 0f;
+                }
+                float naturalGrowthRate = birthRate - pop.deathRate;
+                int totalChange = (int)((float)pop.size * naturalGrowthRate);
+
+                if (UnityEngine.Random.Range(0f, 1f) < pop.size * naturalGrowthRate % 1){
+                    totalChange += 1;
+                }
+
+                ChangePopulation(totalChange);
+                pop.size += totalChange;
+                pops[i] = pop;
+            }            
         }
+
     }
+
     public void GetMaxPopulation(){
         // 10k times the fertility is the maximum population a tile can support
-        tileData.maxPopulation = Mathf.RoundToInt(10000 * tileData.terrain.fertility);
+        maxPopulation = Mathf.RoundToInt(10000 * fertility);
     }
 
 
     public void ChangePopulation(int amount){
-        tileData.population += amount;
+        population += amount;
 
         if (state != null){
             // Updates our state
@@ -67,32 +110,30 @@ public class Tile
     }
 
     public void ChangeWorkforce(int amount){
-        tileData.workforce += amount;
+        workforce += amount;
         if (state != null){
             state.workforce += amount;
         }
     }
 
     public void UpdateColor(){
-        tileManager.updateColor(tileData.tilePos);
+        tileManager.updateColor(tilePos);
     }
-}
-public struct TileStruct{
-    public int population;
-    public int maxPopulation;
-    public int workforce;
-    public Terrain terrain;  
-    public Culture rulingCulture;
-    public Culture majorityCulture;
-    public Tech tech;
-    public float development;
-    public UnsafeList<TileStruct> borderingData;
-    public UnsafeList<Pop> pops;
-    public Vector3Int tilePos;
-    public bool coastal;
-    public bool anarchy;
-    public int changeAmount;
-    public void ChangePopulation(int amount){
-        changeAmount = amount;
-    }  
+
+   public void CreatePop(int amount, Culture culture, Tech tech = new Tech(), float workforceRatio = 0.25f){
+        //Debug.Log(amount);
+        Pop pop = new Pop(){
+            size = amount,
+            dependents = amount - Mathf.RoundToInt((float)amount * workforceRatio),
+            workforce = Mathf.RoundToInt((float)amount * workforceRatio),
+            birthRate = 0.04f / TimeManager.ticksPerYear,
+            deathRate = 0.036f / TimeManager.ticksPerYear,
+            culture = culture,
+            tech = tech
+        };
+        pops.Add(pop);
+        ChangePopulation(amount);
+
+        Debug.Log(amount);
+    }
 }

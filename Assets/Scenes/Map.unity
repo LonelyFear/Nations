@@ -614,15 +614,26 @@ MonoBehaviour:
   - 0.2
   - 0.15
   - 0.05
-  oceanColor: {r: 0.39215687, g: 0.41960785, b: 0.74509805, a: 1}
-  hotColor: {r: 1, g: 0.91878164, b: 0, a: 1}
-  temperateColor: {r: 0.98490566, g: 0.98490566, b: 0.98490566, a: 0}
-  coolColor: {r: 0, g: 0.614594, b: 1, a: 1}
-  moistColor: {r: 0.16787633, g: 0.4943396, b: 0.08487716, a: 1}
-  dryColor: {r: 0.94716984, g: 0.8272603, b: 0.5986828, a: 1}
+  landBiomes:
+  - {fileID: 11400000, guid: 103bc2689b28e7b4db2a505e5cd4ff2c, type: 2}
+  - {fileID: 11400000, guid: f998077a8ab3b4c4bbbdd0d218a58c58, type: 2}
+  - {fileID: 11400000, guid: 0818bcf61a10aca458042638e48c7fe4, type: 2}
+  - {fileID: 11400000, guid: b59d481640f83fe49994ff225290d97b, type: 2}
+  - {fileID: 11400000, guid: 261e035f8fe926248907a9ad417914f7, type: 2}
+  - {fileID: 11400000, guid: 3d8a45a791f2ceb49aea048058d3623d, type: 2}
+  - {fileID: 11400000, guid: ba2c92abf29111e4dbf980ab567a9bc1, type: 2}
+  - {fileID: 11400000, guid: bbdf6e67ff742a047b836308f803da62, type: 2}
+  - {fileID: 11400000, guid: 42c3515e5217cf348b6b7ca469a52e69, type: 2}
+  - {fileID: 11400000, guid: 4cc9dbc0cb0a3b245ae8762aecdea686, type: 2}
+  - {fileID: 11400000, guid: f08e4363f375af1449066c0d308f6a99, type: 2}
+  - {fileID: 11400000, guid: 512ea7048bfe95649b7b4ff9b5baa44e, type: 2}
+  - {fileID: 11400000, guid: 2b4754eeb3d737c47a686396685eed18, type: 2}
+  - {fileID: 11400000, guid: 62969cc3fa17a0f48b4d168b8360ccff, type: 2}
+  oceanBiome: {fileID: 11400000, guid: 3a24a775a7a3a0c43961fa25aa062bd3, type: 2}
+  seaIceBiome: {fileID: 11400000, guid: 67994cab12ba58a408f74b8bc6a62c63, type: 2}
+  defaultBiome: {fileID: 11400000, guid: 7bdeed2c0c6cd5e4e86e33d1940a3e9d, type: 2}
   moistureOffset: 0
   tempOffset: -0.1
-  freezingTemp: 0.2
 --- !u!4 &184318060
 Transform:
   m_ObjectHideFlags: 0
@@ -669,9 +680,8 @@ MonoBehaviour:
   anarchyConquestChance: 0.2
   minNationPopulation: 200
   initialAnarchy: 8
-  popsToCreate: 1
+  popsToCreate: 100
   updateMap: 0
-  popManager: {fileID: 1103100581}
   mapMode: 0
 --- !u!1 &253897841
 GameObject:
@@ -1961,54 +1971,6 @@ RectTransform:
   m_AnchoredPosition: {x: -17.523, y: 56.559}
   m_SizeDelta: {x: 423.45, y: 50.792}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!1 &1103100580
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1103100582}
-  - component: {fileID: 1103100581}
-  m_Layer: 0
-  m_Name: PopManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1103100581
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1103100580}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c995764cddfa1ff419eaf4c71726e494, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  worldPopulation: 0
-  worldWorkforce: 0
-  worldRatio: 0
-  tm: {fileID: 184318062}
---- !u!4 &1103100582
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1103100580}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 156.25775, y: 77.401405, z: -1.2559707}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1124326824
 GameObject:
   m_ObjectHideFlags: 0
@@ -3293,4 +3255,3 @@ SceneRoots:
   - {fileID: 1236494429}
   - {fileID: 184318060}
   - {fileID: 864857214}
-  - {fileID: 1103100582}

@@ -12,10 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd483347c7c90924e83eaeaee1ffe137, type: 3}
   m_Name: Temperate Forest
   m_EditorClassIdentifier: 
-  temperature: 0.5
-  moisture: 0.5
-  water: 0
-  claimable: 1
+  minTemperature: 0.4
+  maxTemperature: 0.7
+  minMoisture: 0.4
+  maxMoisture: 0.7
+  minAltitude: 0
+  maxAltitude: 0
   fertility: 1
-  navigability: 0.9
-  biomeColor: {r: 0.30491987, g: 0.5018867, b: 0.26798856, a: 1}
+  color: {r: 0.19451256, g: 0.4943396, b: 0.19307223, a: 1}
+  terrainType: 0

@@ -12,9 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd483347c7c90924e83eaeaee1ffe137, type: 3}
   m_Name: Rock
   m_EditorClassIdentifier: 
-  temperature: 0
-  moisture: 0
-  water: 0
-  claimable: 1
+  minTemperature: 0
+  maxTemperature: 0
+  minMoisture: 0
+  maxMoisture: 0
+  minAltitude: 0
+  maxAltitude: 0
   fertility: 0
-  biomeColor: {r: 0.20754719, g: 0.20754719, b: 0.20754719, a: 1}
+  color: {r: 0.2528302, g: 0.2528302, b: 0.2528302, a: 0}
+  terrainType: 0

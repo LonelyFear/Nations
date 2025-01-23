@@ -12,10 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd483347c7c90924e83eaeaee1ffe137, type: 3}
   m_Name: Polar Glacier
   m_EditorClassIdentifier: 
-  temperature: 0
-  moisture: 0.5
-  water: 0
-  claimable: 1
+  minTemperature: 0
+  maxTemperature: 0.1
+  minMoisture: 0
+  maxMoisture: 1
+  minAltitude: 0
+  maxAltitude: 0
   fertility: 0.01
-  navigability: 0.01
-  biomeColor: {r: 0.827451, g: 0.8823758, b: 0.9019608, a: 1}
+  color: {r: 0.9415095, g: 0.998841, b: 1, a: 1}
+  terrainType: 2
