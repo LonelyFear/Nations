@@ -614,24 +614,7 @@ MonoBehaviour:
   - 0.2
   - 0.15
   - 0.05
-  landBiomes:
-  - {fileID: 11400000, guid: 103bc2689b28e7b4db2a505e5cd4ff2c, type: 2}
-  - {fileID: 11400000, guid: f998077a8ab3b4c4bbbdd0d218a58c58, type: 2}
-  - {fileID: 11400000, guid: 0818bcf61a10aca458042638e48c7fe4, type: 2}
-  - {fileID: 11400000, guid: b59d481640f83fe49994ff225290d97b, type: 2}
-  - {fileID: 11400000, guid: 261e035f8fe926248907a9ad417914f7, type: 2}
-  - {fileID: 11400000, guid: 3d8a45a791f2ceb49aea048058d3623d, type: 2}
-  - {fileID: 11400000, guid: ba2c92abf29111e4dbf980ab567a9bc1, type: 2}
-  - {fileID: 11400000, guid: bbdf6e67ff742a047b836308f803da62, type: 2}
-  - {fileID: 11400000, guid: 42c3515e5217cf348b6b7ca469a52e69, type: 2}
-  - {fileID: 11400000, guid: 4cc9dbc0cb0a3b245ae8762aecdea686, type: 2}
-  - {fileID: 11400000, guid: f08e4363f375af1449066c0d308f6a99, type: 2}
-  - {fileID: 11400000, guid: 512ea7048bfe95649b7b4ff9b5baa44e, type: 2}
-  - {fileID: 11400000, guid: 2b4754eeb3d737c47a686396685eed18, type: 2}
-  - {fileID: 11400000, guid: 62969cc3fa17a0f48b4d168b8360ccff, type: 2}
-  oceanBiome: {fileID: 11400000, guid: 3a24a775a7a3a0c43961fa25aa062bd3, type: 2}
-  seaIceBiome: {fileID: 11400000, guid: 67994cab12ba58a408f74b8bc6a62c63, type: 2}
-  defaultBiome: {fileID: 11400000, guid: 7bdeed2c0c6cd5e4e86e33d1940a3e9d, type: 2}
+  biomesToGen: {fileID: 4900000, guid: 18adb5afa8a2434478faba1d07ffb9cc, type: 3}
   moistureOffset: 0
   tempOffset: 0
 --- !u!4 &184318060

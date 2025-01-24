@@ -87,6 +87,34 @@ public class Tile
                 pops[i] = pop;
             }            
         }
+    }
+
+    public Color Hetx2RGB(string hex)
+    {
+
+     
+        Color newColor = Color.white;
+
+        //Make sure we dont have any alpha values
+        if (hex.Length != 6)
+        {
+            return newColor;
+        }
+
+        var hexRed = int.Parse(hex[0].ToString() + hex[1].ToString(),
+        System.Globalization.NumberStyles.HexNumber);
+
+        var hexGreen = int.Parse(hex[2].ToString() + hex[3].ToString(),
+        System.Globalization.NumberStyles.HexNumber);
+
+        var hexBlue = int.Parse(hex[4].ToString() + hex[5].ToString(),
+        System.Globalization.NumberStyles.HexNumber);
+
+
+        newColor = new Color(hexRed / 255f, hexGreen / 255f, hexBlue / 255f);
+
+        
+        return newColor;
 
     }
 

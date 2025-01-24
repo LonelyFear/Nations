@@ -1,0 +1,110 @@
+{
+    "modId":"base",
+    "biomes" : [
+        {
+            "id":"polar",
+            "mergedIds":["polar desert", "polar ice"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },
+        {
+            "id":"tundra",
+            "mergedIds":["subpolar moist tundra", "subpolar wet tundra", "subpolar dry tundra", "subpolar rain tundra"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },  
+        {
+            "id":"cold parkland",
+            "mergedIds":["boreal desert", "boreal dry scrub"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },  
+        {
+            "id":"coniferous forest",
+            "mergedIds":["boreal moist forest", "boreal wet forest", "boreal rain forest"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },  
+        {
+            "id":"mixed forest",
+            "mergedIds":["cool temperate moist forest", "cool temperate wet forest", "cool temperate rain forest"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },
+        {
+            "id":"steppe",
+            "mergedIds":["cool temperate steppe"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },
+        {
+            "id":"cool desert",
+            "mergedIds":["cool temperate desert", "cool temperate desert scrub"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },
+        {
+            "id":"deciduous forest",
+            "mergedIds":["warm temperate moist forest", "warm temperate wet forest", "warm temperate rain forest"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },
+        {
+            "id":"chaparral",
+            "mergedIds":["warm temperate thorn scrub", "warm temperate dry forest"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },
+        {
+            "id":"hot desert",
+            "mergedIds":["warm temperate desert", "warm temperate desert scrub", "subtropical desert", "subtropical desert scrub", "tropical desert", "tropical desert scrub"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },
+        {
+            "id":"savanna",
+            "mergedIds":["wubtropical thorn woodland", "tropical thorn woodland", "tropical very dry forest"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },
+        {
+            "id":"tropical seasonal forest",
+            "mergedIds":["subtropical dry forest", "tropical dry forest", "subtropical moist forest"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },
+        {
+            "id":"tropical rain forest",
+            "mergedIds":["subtropical wet forest", "subtropical rain forest", "tropical moist forest", "tropical wet forest", "tropical rain forest"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },
+        {
+            "id":"ocean",
+            "mergedIds":["ocean"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        },
+        {
+            "id":"rock",
+            "mergedIds":["rock"],
+            "fertility":0.0,
+            "color":"",
+            "terrainType":0
+        }
+    ]  
+}

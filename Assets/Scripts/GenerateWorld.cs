@@ -1,11 +1,37 @@
+using System;
 using System.Collections.Generic;
-using System.Net;
-using System.Security.Claims;
+using Unity.Serialization.Json;
 using Unity.VisualScripting;
-using UnityEditor.UI;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
+public enum TempType {
+    EARTH
+}
+public enum MoistType {
+    EARTH
+}
+public enum TempTypes {
+    POLAR,
+    ALPINE,
+    BOREAL,
+    COOL,
+    WARM,
+    SUBTROPICAL,
+    TROPICAL,
+    INVALID
+}
+public enum HumidTypes {
+    SUPER_ARID,
+    PER_ARID,
+    ARID,
+    SEMI_ARID,
+    SUB_HUMID,
+    HUMID,
+    PER_HUMID,
+    SUPER_HUMID,
+    INVALID
+}
 public class GenerateWorld : MonoBehaviour
 {
     [Header("Variables And Lists")]
@@ -39,38 +65,47 @@ public class GenerateWorld : MonoBehaviour
     [SerializeField] Color moistColor;
     [SerializeField] Color dryColor;
     */
-    [SerializeField]
-    Biome[] landBiomes;
-    [SerializeField] Biome oceanBiome;
-    [SerializeField] Biome seaIceBiome;
-    [SerializeField] Biome defaultBiome;
+    [SerializeField] UnityEngine.Object biomesToGen;
     [Range(-0.5f, 0.5f)]
     [SerializeField]  float moistureOffset;
     [Range(-0.5f, 0.5f)]
     [SerializeField]  float tempOffset;
     [Range(0f, 1f)]
 
+    // Constrains & Local values
+    Biome[] loadedBiomeAggregates;
+    string[,] biomes;
+    float[] temps = {0.874f, 0.765f, 0.594f, 0.439f, 0.366f, 0.124f};
+    float[] humids = {0.941f, 0.778f, 0.507f, 0.236f, 0.073f, 0.014f, 0.002f};
+
     float landTiles = 0;
     public Dictionary<Vector3Int, Tile> tiles = new Dictionary<Vector3Int, Tile>();
 
     void Start()
     {
+        biomes = new string[worldSize.x, worldSize.y];
+        print(biomesToGen.ToString());
+        //loadedBiomeAggregates = JsonUtility.FromJson<BiomeImport>(biomesToGen.ToString()).biomes;
+
+        print(loadedBiomeAggregates);
+        print(loadedBiomeAggregates[0].id);
         if (randomizeSeed){
-            noiseSeed = Random.Range(0, 99999);
+            noiseSeed = UnityEngine.Random.Range(0, 99999);
         }
         if (fixToTexture && preset.noiseTexture){
             fitYToTexture();
         }
-        generateWorld();
+        //generateWorld();
 
         // Connects relevant scripts to worldgen finished
         WorldgenEvents.onWorldgenFinished += FindAnyObjectByType<TimeManager>().startTimers;
         Events.tick += GetComponent<TileManager>().Tick;
-        GetComponent<TileManager>().worldSize = worldSize;
-        GetComponent<TileManager>().Init();
+        //GetComponent<TileManager>().worldSize = worldSize;
+        //GetComponent<TileManager>().Init();
 
         // Sends worldgen finished signal
         GetComponent<WorldgenEvents>().worldgenFinish();
+        print(JsonUtility.ToJson(new Biome()));
     }
     void fitYToTexture(){
         float texScale = preset.noiseTexture.Size().x / worldSize.x;
@@ -84,7 +119,7 @@ public class GenerateWorld : MonoBehaviour
         return val;
     }
 
-    float getHeight(int x, int y){
+    float getAltitude(int x, int y){
         float totalNoise;
         // If there isnt a predifined noise texture
         if (!preset.noiseTexture){
@@ -107,7 +142,7 @@ public class GenerateWorld : MonoBehaviour
         return totalNoise;
     }
 
-    float getMoisture(int x, int y){
+    float getHumid(int x, int y){
         float clouds = getNoise(x,y, 0.01f, noiseSeed + 642);
         float systems = getNoise(x,y, 0.2f, noiseSeed + 753);
         float seas = getNoise(x,y, 0.5f, noiseSeed + 257);
@@ -154,7 +189,7 @@ public class GenerateWorld : MonoBehaviour
                 // Adds the tile to the tile manager
                 
 
-                SetBiome(x, y, newTile);
+                biomes[x,y] = SetBiome(x, y);
                 
                 tiles.Add(cellPos, newTile);
             }
@@ -183,63 +218,225 @@ public class GenerateWorld : MonoBehaviour
             }
         }        
     }
-    void SetBiome(int x, int y, Tile tile){
+    String SetBiome(int x, int y){
 
-        float altitude = getHeight(x,y);
-        float temp = getTemp(x,y);
-        float moisture = getMoisture(x,y);
+        float altitude = getAltitude(x,y);
         float seaLevel = preset.oceanThreshold;
 
-        Color color;
-        Biome biome;
+        String biome;
 
         // If we are below the ocean threshold
         if (altitude <= seaLevel){
-            biome = oceanBiome;
-            color = Color.Lerp(Color.black, biome.color, altitude/seaLevel);
-            if (temp <= seaIceBiome.maxTemperature){
-                biome = seaIceBiome;
-                color = biome.color;
+            switch (getTempType(x, y)){
+                case TempTypes.POLAR:
+                    biome = "polar ice";
+                    break;
+                default:
+                    biome = "ocean";
+                    break;
             }
         } else {
             landTiles++;
-            biome = defaultBiome;
-            foreach (Biome potentialBiome in landBiomes){
-                bool withinTemp =  temp >= potentialBiome.minTemperature && temp < potentialBiome.maxTemperature;
-                bool withinMoist = moisture >= potentialBiome.minMoisture && moisture < potentialBiome.maxMoisture;
-                bool withinAlt = true; // Mathf.Clamp01((altitude - seaLevel) / (1f - seaLevel)) >= potentialBiome.minAltitude && Mathf.Clamp01((altitude - seaLevel) / (1f - seaLevel)) < potentialBiome.maxAltitude
-                if (withinAlt && withinMoist && withinTemp){
-                    biome = potentialBiome;
+            switch (getTempType(x, y)){
+                case TempTypes.POLAR:
+                    switch (getHumidType(x, y)){
+                        case HumidTypes.SUPER_ARID:
+                            biome = "polar desert";
+                            break;
+                        default:
+                            biome = "polar ice";
+                            break;
+                    }
                     break;
-                }
+                case TempTypes.ALPINE:
+                    switch (getHumidType(x, y)){
+                        case HumidTypes.SUPER_ARID:
+                            biome = "subpolar dry tundra";
+                            break;
+                        case HumidTypes.PER_ARID:
+                            biome = "subpolar moist tundra";
+                            break;
+                        case HumidTypes.ARID:
+                            biome = "subpolar wet tundra";
+                            break;
+                        default:
+                            biome = "subpolar rain tundra";
+                            break;
+                    }
+                    break;
+                case TempTypes.BOREAL:
+                    switch (getHumidType(x, y)){
+                        case HumidTypes.SUPER_ARID:
+                            biome = "boreal desert";
+                            break;
+                        case HumidTypes.PER_ARID:
+                            biome = "boreal dry scrub";
+                            break;
+                        case HumidTypes.ARID:
+                            biome = "boreal moist forest";
+                            break;
+                        case HumidTypes.SEMI_ARID:
+                            biome = "boreal wet forest";
+                            break;
+                        default:
+                            biome = "boreal rain forest";
+                            break;
+                    }
+                    break;
+                case TempTypes.COOL:
+                    switch (getHumidType(x, y)){
+                        case HumidTypes.SUPER_ARID:
+                            biome = "cool temperate desert";
+                            break;
+                        case HumidTypes.PER_ARID:
+                            biome = "cool temperate desert scrub";
+                            break;
+                        case HumidTypes.ARID:
+                            biome = "cool temperate steppe";
+                            break;
+                        case HumidTypes.SEMI_ARID:
+                            biome = "cool temperate moist forest";
+                            break;
+                        case HumidTypes.SUB_HUMID:
+                            biome = "cool temperate wet forest";
+                            break;
+                        default:
+                            biome = "cool temperate rain forest";
+                            break;
+                    }
+                    break;
+                case TempTypes.WARM:
+                    switch (getHumidType(x, y)){
+                        case HumidTypes.SUPER_ARID:
+                            biome = "warm temperate desert";
+                            break;
+                        case HumidTypes.PER_ARID:
+                            biome = "warm temperate desert scrub";
+                            break;
+                        case HumidTypes.ARID:
+                            biome = "warm temperate thorn scrub";
+                            break;
+                        case HumidTypes.SEMI_ARID:
+                            biome = "warm temperate dry forest";
+                            break;
+                        case HumidTypes.SUB_HUMID:
+                            biome = "warm temperate moist forest";
+                            break;
+                        case HumidTypes.HUMID:
+                            biome = "warm temperate wet forest";
+                            break;
+                        default:
+                            biome = "warm temperate rain forest";
+                            break;
+                    }
+                    break;
+                case TempTypes.SUBTROPICAL:
+                    switch (getHumidType(x, y)){
+                        case HumidTypes.SUPER_ARID:
+                            biome = "subtropical desert";
+                            break;
+                        case HumidTypes.PER_ARID:
+                            biome = "subtropical desert scrub";
+                            break;
+                        case HumidTypes.ARID:
+                            biome = "subtropical thorn woodland";
+                            break;
+                        case HumidTypes.SEMI_ARID:
+                            biome = "subtropical dry forest";
+                            break;
+                        case HumidTypes.SUB_HUMID:
+                            biome = "subtropical moist forest";
+                            break;
+                        case HumidTypes.HUMID:
+                            biome = "subtropical wet forest";
+                            break;
+                        default:
+                            biome = "subtropical rain forest";
+                            break;
+                    }
+                    break;
+                case TempTypes.TROPICAL:
+                    switch (getHumidType(x, y)){
+                        case HumidTypes.SUPER_ARID:
+                            biome = "tropical desert";
+                            break;
+                        case HumidTypes.PER_ARID:
+                            biome = "tropical desert scrub";
+                            break;
+                        case HumidTypes.ARID:
+                            biome = "tropical thorn woodland";
+                            break;
+                        case HumidTypes.SEMI_ARID:
+                            biome = "tropical very dry forest";
+                            break;
+                        case HumidTypes.SUB_HUMID:
+                            biome = "tropical dry forest";
+                            break;
+                        case HumidTypes.HUMID:
+                            biome = "tropical moist forest";
+                            break;
+                        case HumidTypes.PER_HUMID:
+                            biome = "tropical wet forest";
+                            break;
+                        default:
+                            biome = "tropical rain forest";
+                            break;
+                    }
+                    break;
+                default:
+                    biome = "rock";
+                    break;
             }
-            color = biome.color;
         }
 
-        switch (biome.terrainType){
-            case BiomeTerrainType.LAND:
-                tile.claimable = true;
-                break;
-            case BiomeTerrainType.WATER:
-                tile.claimable = false;
-                break;
-            case BiomeTerrainType.ICE:
-                tile.claimable = true;
-                break;
+        return biome;
+
+        TempTypes getTempType(int x, int y){
+            float temp = getTemp(x, y);
+            if (temp < temps[0]){
+                return TempTypes.POLAR;
+            } else if (temp >= temps[0] && temp < temps[1]){
+                return TempTypes.ALPINE;
+            } else if (temp >= temps[1] && temp < temps[2]){
+                return TempTypes.BOREAL;
+            } else if (temp >= temps[2] && temp < temps[3]){
+                return TempTypes.COOL;
+            } else if (temp >= temps[3] && temp < temps[4]){
+                return TempTypes.WARM;
+            } else if (temp >= temps[4] && temp < temps[5]){
+                return TempTypes.SUBTROPICAL;
+            } else if (temp >= temps[5]){
+                return TempTypes.TROPICAL;
+            } else {
+                return TempTypes.INVALID;
+            }
         }
-        //float fertility = CalcFertility(height, moisture, temp);
-        
-        //if (water){
-            //fertility = 0;
-        //}
-    
-        tile.terrainColor = color;
-        tile.biome = biome;
-        tile.fertility = biome.fertility;
-        tile.altitude = altitude;
-        tile.temperature = temp;
-        tile.moisture = moisture;
+
+        HumidTypes getHumidType(int x, int y){
+            float humid = getHumid(x, y);
+            if ( humid < humids[0]){
+                return  HumidTypes.SUPER_ARID;
+            } else if (humid >= humids[0] && humid < humids[1]){
+                return HumidTypes.PER_ARID;
+            } else if (humid >= humids[1] && humid < humids[2]){
+                return HumidTypes.ARID;
+            } else if (humid >= humids[2] && humid < humids[3]){
+                return HumidTypes.SEMI_ARID;
+            } else if (humid >= humids[3] && humid < humids[4]){
+                return HumidTypes.SUB_HUMID;
+            } else if (humid >= humids[4] && humid < humids[5]){
+                return HumidTypes.HUMID;
+            } else if (humid >= humids[5] && humid < humids[6]){
+                return HumidTypes.PER_HUMID; 
+            } else if (humid >= humids[7]){
+                return HumidTypes.SUPER_HUMID;
+            } else {
+                return HumidTypes.INVALID;
+            }
+        }
     }
+
+
     /*
     float CalcFertility(float height, float moisture, float temperature){
         float seaLevel = preset.oceanThreshold;
