@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Unity.Serialization.Json;
+using System.IO;
+using System.Linq;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Tilemaps;
@@ -65,7 +66,7 @@ public class GenerateWorld : MonoBehaviour
     [SerializeField] Color moistColor;
     [SerializeField] Color dryColor;
     */
-    [SerializeField] UnityEngine.Object biomesToGen;
+    [SerializeField] String biomePath;
     [Range(-0.5f, 0.5f)]
     [SerializeField]  float moistureOffset;
     [Range(-0.5f, 0.5f)]
@@ -84,24 +85,23 @@ public class GenerateWorld : MonoBehaviour
     void Start()
     {
         biomes = new string[worldSize.x, worldSize.y];
-        print(biomesToGen.ToString());
-        //loadedBiomeAggregates = JsonUtility.FromJson<BiomeImport>(biomesToGen.ToString()).biomes;
+        // /loadedBiomeAggregates = ;
 
+        loadedBiomeAggregates = JsonUtility.FromJson<BiomeWrapper>(File.ReadAllText(biomePath)).biomes.ToArray();
         print(loadedBiomeAggregates);
-        print(loadedBiomeAggregates[0].id);
         if (randomizeSeed){
             noiseSeed = UnityEngine.Random.Range(0, 99999);
         }
         if (fixToTexture && preset.noiseTexture){
             fitYToTexture();
         }
-        //generateWorld();
+        generateWorld();
 
         // Connects relevant scripts to worldgen finished
         WorldgenEvents.onWorldgenFinished += FindAnyObjectByType<TimeManager>().startTimers;
         Events.tick += GetComponent<TileManager>().Tick;
-        //GetComponent<TileManager>().worldSize = worldSize;
-        //GetComponent<TileManager>().Init();
+        GetComponent<TileManager>().worldSize = worldSize;
+        GetComponent<TileManager>().Init();
 
         // Sends worldgen finished signal
         GetComponent<WorldgenEvents>().worldgenFinish();
@@ -205,6 +205,21 @@ public class GenerateWorld : MonoBehaviour
     }
 
     void FinalChecks(){
+        for (int y = 0; y < worldSize.y; y++){
+            for (int x = 0; x < worldSize.x; x++){
+                Tile tile = tiles[new Vector3Int(x,y)];
+                tile.terrainColor = Color.Lerp(Color.black, Color.red, getTemp(x,y));
+                string biome = biomes[x,y].ToLower();
+                
+                foreach (Biome aggregate in loadedBiomeAggregates){
+                    if (aggregate.mergedIds.Contains(biome)){
+                        tile.biome = aggregate;
+                        break;
+                    }
+                }
+            }
+        }
+            
         foreach (var entry in tiles){
             Tile tile = entry.Value;
             Vector3Int pos = entry.Key;

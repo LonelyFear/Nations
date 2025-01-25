@@ -89,10 +89,8 @@ public class Tile
         }
     }
 
-    public Color Hetx2RGB(string hex)
+    public static Color Hetx2RGB(string hex)
     {
-
-     
         Color newColor = Color.white;
 
         //Make sure we dont have any alpha values

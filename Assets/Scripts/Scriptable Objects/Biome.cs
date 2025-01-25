@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -9,9 +10,9 @@ public enum BiomeTerrainType {
     ICE
 }
 
-[CreateAssetMenu(fileName = "Biome", menuName = "ScriptableObjects/Biome", order = 1)]
+//[CreateAssetMenu(fileName = "Biome", menuName = "ScriptableObjects/Biome", order = 1)]
 [Serializable]
-public class Biome : ScriptableObject
+public class Biome 
 {    
     [Header("Biome Stats")]
     public string id;
@@ -22,8 +23,7 @@ public class Biome : ScriptableObject
 }
 
 [Serializable]
-public class BiomeImport : ScriptableObject 
+public class BiomeWrapper
 {
-    public string modId = "base";
-    public Biome[] biomes;
+    public List<Biome> biomes;
 }

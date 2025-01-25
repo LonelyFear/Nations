@@ -614,7 +614,7 @@ MonoBehaviour:
   - 0.2
   - 0.15
   - 0.05
-  biomesToGen: {fileID: 4900000, guid: 18adb5afa8a2434478faba1d07ffb9cc, type: 3}
+  biomePath: Assets/Biomes/Biomes.json
   moistureOffset: 0
   tempOffset: 0
 --- !u!4 &184318060
