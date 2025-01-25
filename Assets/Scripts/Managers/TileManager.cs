@@ -54,7 +54,7 @@ public class TileManager : MonoBehaviour
             Events.tick += tile.Tick;
             tile.tileManager = this;
             tile.GetMaxPopulation();
-            //tile.terrainColor = Tile.Hetx2RGB(tile.biome.color);
+            tile.terrainColor = Tile.Hetx2RGB(tile.biome.color);
 
             for (int x = -1; x <= 1; x++){
                 for (int y = -1; y <= 1; y++){
