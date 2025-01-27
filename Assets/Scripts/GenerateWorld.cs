@@ -35,10 +35,8 @@ public enum HumidTypes {
 }
 public class GenerateWorld : MonoBehaviour
 {
-    [Header("Variables And Lists")]
-    public Tilemap tilemap;
-    public TileBase tileBase;
-    
+    public MapTextureManager map;
+
     [Header("World Generation Settings")]
     public Vector2Int worldSize = new Vector2Int(100, 100);
 
@@ -83,13 +81,16 @@ public class GenerateWorld : MonoBehaviour
     float[,] humidVals;
 
     float landTiles = 0;
-    public Dictionary<Vector3Int, Tile> tiles = new Dictionary<Vector3Int, Tile>();
+    public Tile[,] tiles;
 
     void Start()
     {
+        //worldSize = Vector2Int.RoundToInt(map.GetComponent<RectTransform>().sizeDelta);
+        /*
         biomes = new string[worldSize.x, worldSize.y];
         tempVals = new float[worldSize.x, worldSize.y];
         humidVals = new float[worldSize.x, worldSize.y];
+        tiles = new Tile[worldSize.x, worldSize.y];
         // /loadedBiomeAggregates = ;
 
         loadedBiomeAggregates = JsonUtility.FromJson<BiomeWrapper>(File.ReadAllText(biomePath)).biomes.ToArray();
@@ -111,6 +112,7 @@ public class GenerateWorld : MonoBehaviour
         // Sends worldgen finished signal
         GetComponent<WorldgenEvents>().worldgenFinish();
         print(JsonUtility.ToJson(new Biome()));
+        */
     }
     void fitYToTexture(){
         float texScale = preset.noiseTexture.Size().x / worldSize.x;
@@ -174,9 +176,9 @@ public class GenerateWorld : MonoBehaviour
         return temp;
     }
 
-    Tile getTile(Vector3Int pos){
-        if (tiles.ContainsKey(pos)){
-            return tiles[pos];
+    Tile getTile(int x, int y){
+        if (x < worldSize.x && y < worldSize.y && x >= 0 && y >= 0){
+            return tiles[x, y];
         }
         return null;
     }
@@ -193,20 +195,13 @@ public class GenerateWorld : MonoBehaviour
             for (int x = 0; x < worldSize.x; x++){
                 Vector3Int cellPos = new Vector3Int(x,y);
 
-                tilemap.SetTile(cellPos, tileBase);
-
                 // Sets terrain to default
                 
                 // Instantiates a tile
                 Tile newTile = new Tile();
 
-
-                // Adds the tile to the tile manager
-                
-
                 biomes[x,y] = SetBiome(x, y);
-                
-                tiles.Add(cellPos, newTile);
+                tiles[x, y] = newTile;
             }
         }
         FinalChecks();
@@ -222,7 +217,7 @@ public class GenerateWorld : MonoBehaviour
     void FinalChecks(){
         for (int y = 0; y < worldSize.y; y++){
             for (int x = 0; x < worldSize.x; x++){
-                Tile tile = tiles[new Vector3Int(x,y)];
+                Tile tile = tiles[x, y];
                 tile.terrainColor = Color.Lerp(Color.black, Color.blue, humidVals[x,y]);
                 string biome = biomes[x,y].ToLower();
                 
@@ -234,19 +229,20 @@ public class GenerateWorld : MonoBehaviour
                 }
             }
         }
-            
-        foreach (var entry in tiles){
-            Tile tile = entry.Value;
-            Vector3Int pos = entry.Key;
-            for (int ox = -1; ox <= 1; ox++){
-                for (int oy = -1; oy <= 1; oy++){
-                    if (getTile(pos + new Vector3Int(ox, oy)) != null && getTile(pos + new Vector3Int(ox, oy)).biome.terrainType == BiomeTerrainType.WATER){
-                        tile.coastal = true;
-                        break;
+
+        for (int y = 0; y < worldSize.y; y++){
+            for (int x = 0; x < worldSize.x; x++){
+                Tile tile = tiles[x, y];
+                for (int ox = -1; ox <= 1; ox++){
+                    for (int oy = -1; oy <= 1; oy++){
+                        if (getTile(ox + x, oy + y) != null && getTile(ox + x, oy + y).biome.terrainType == BiomeTerrainType.WATER){
+                            tile.coastal = true;
+                            break;
+                        }
                     }
-                }
-            }
-        }        
+                }                
+            }  
+        }   
     }
     String SetBiome(int x, int y){
 

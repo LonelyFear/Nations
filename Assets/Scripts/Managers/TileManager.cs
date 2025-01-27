@@ -5,11 +5,13 @@ using Random = UnityEngine.Random;
 using UnityEngine.EventSystems;
 using System.Linq;
 using Unity.Collections;
+using UnityEngine.InputSystem.Interactions;
 
 public class TileManager : MonoBehaviour
 {
     public Vector2Int worldSize;
-    public Tilemap tilemap;
+
+    public MapTextureManager map;
     public NationPanel nationPanel;
 
     [Header("Nation Spawning")]
@@ -37,7 +39,7 @@ public class TileManager : MonoBehaviour
 
     // Lists & Stats
     //public int worldPopulation;
-    public Dictionary<Vector3Int, Tile> tiles = new Dictionary<Vector3Int, Tile>();
+    public Tile[,] tiles = new Tile[0,0];
 
     public List<State> states = new List<State>();
     public List<Tile> anarchy = new List<Tile>();
@@ -47,33 +49,35 @@ public class TileManager : MonoBehaviour
     }
     public void Init(){
         // Goes thru the tiles
-        for (int i = 0; i < tiles.Count; i++){
-            Tile tile = tiles.ElementAt(i).Value;
-            Vector3Int tilePos = tiles.ElementAt(i).Key;
+        for (int y = 0; y < worldSize.y; y++){
+            for (int x = 0; x < worldSize.x; x++){
+                Tile tile = tiles[x,y];
+                tile.tilePos = new Vector2Int(x, y);
 
-            Events.tick += tile.Tick;
-            tile.tileManager = this;
-            tile.GetMaxPopulation();
-            tile.terrainColor = Tile.Hetx2RGB(tile.biome.color);
+                Events.tick += tile.Tick;
+                tile.tileManager = this;
+                tile.GetMaxPopulation();
+                tile.terrainColor = Tile.Hetx2RGB(tile.biome.color);
 
-            for (int x = -1; x <= 1; x++){
-                for (int y = -1; y <= 1; y++){
-                    Tile borderTile = getTile(new Vector3Int(x, y) + tilePos);
-                    if (borderTile != null && borderTile != tile){
-                        tile.borderingTiles.Append(borderTile);
-                        tile.borderingPositions.Append(new Vector3Int(x, y) + tilePos);
+                for (int x2 = -1; x2 <= 1; x2++){
+                    for (int y2 = -1; y2 <= 1; y2++){
+                        Tile borderTile = getTile(x2 + x, y2 + y);
+                        if (borderTile != null && borderTile != tile){
+                            tile.borderingTiles.Append(borderTile);
+                        }
                     }
-                }
-            }    
+                }    
+            }
+            // Adds initial anarchy
+            addInitialAnarchy(initialAnarchy);
+            // Initializes tile populations
+            foreach (Tile tile in anarchy){
+                initPopulation(tile, popsToCreate);
+            }
+            // Sets the map colors
+            updateAllColors(true);                
         }
-        // Adds initial anarchy
-        addInitialAnarchy(initialAnarchy);
-        // Initializes tile populations
-        foreach (Tile tile in anarchy){
-            initPopulation(tile, popsToCreate);
-        }
-        // Sets the map colors
-        updateAllColors(true);
+
     }
 
     void addInitialAnarchy(int seedAmount){
@@ -98,14 +102,13 @@ public class TileManager : MonoBehaviour
 
             if (tile != null){
                 // Adds anarchy to the tile
-                addAnarchy(tile.tilePos);
+                SetAnarchy(tile.tilePos.x, tile.tilePos.y, true);
  
                 for (int x = -3; x <= 3; x++){
                     for (int y = -3; y <= 3; y++){
-                        Vector3Int newAnarchyPos = new Vector3Int(tile.tilePos.x + x, tile.tilePos.y + y);
-                        Tile tile1 = getTile(newAnarchyPos);
+                        Tile tile1 = getTile(tile.tilePos.x + x, tile.tilePos.y + y);
                         if (tile1 != null && tile1.claimable && Random.Range(0f, 1f) < 0.2f){
-                            addAnarchy(newAnarchyPos);
+                            SetAnarchy(tile.tilePos.x + x, tile.tilePos.y + y, true);
                         }
                     }
                 }
@@ -116,7 +119,7 @@ public class TileManager : MonoBehaviour
 
     Tile getRandomTile(){
         // Picks a random tile
-        return tiles.Values.ElementAt(Random.Range(0, tiles.Keys.Count - 1));
+        return tiles[Random.Range(0, worldSize.x - 1), Random.Range(0, worldSize.y - 1)];
     }
 
     public void Tick(){
@@ -129,7 +132,6 @@ public class TileManager : MonoBehaviour
         Events.TickStates();
 
         // Each game tick nations can expand into neutral lands
-        neutralExpansion();
     }
     void creationTick(){
         // Checks if there are any anarchic tiles
@@ -139,7 +141,7 @@ public class TileManager : MonoBehaviour
             // If the tile is anarchy, has sufficient population, and passes the random check
             if (tile.anarchy && Random.Range(0f, 1f) < stateSpawnChance * Mathf.Clamp01(tile.fertility + 0.2f) && tile.population >= minNationPopulation){
                 // Creates a new random state at that tile
-                createRandomState(tile.tilePos);
+                createRandomState(tile.tilePos.x, tile.tilePos.y);
             }   
         }
           
@@ -158,86 +160,22 @@ public class TileManager : MonoBehaviour
         }
     }
 
-
-    public void neutralExpansion(){
-        foreach (var entry in tiles){
-            // Goes through every tile
-            Tile tile = entry.Value;
-            
-            // Sets the expansion chance
-            float expandChance = 0.02f;
-
-            // If the tile is a frontier and if it has an owner
-            if (tile.frontier && tile.state != null || tile.anarchy){
-                // Goes through its borders
-                for (int xd = -1; xd <= 1; xd++){
-
-                    for (int yd = -1; yd <= 1; yd++){
-                        if (yd != 0 && xd != 0){
-                            continue;
-                        }
-                        // Does a first random check to save performance
-                        if ((Random.Range(0f, 1f) < expandChance || tile.coastal && Random.Range(0f, 1f) < expandChance * 4f) && tile.population > 0){
-                            // Gets the tilemap pos of this adjacent tile
-                            Vector3Int pos = new Vector3Int(xd,yd) + entry.Key;
-                            // Checks if the tile even exists
-                            if (tiles.ContainsKey(pos)){
-                                Tile target = getTile(pos);
-
-                                bool isState = tile.state != null;
-                                // Checks if we can expand (Random)
-                                bool canExpand = Random.Range(0f, 1f) < target.fertility;
-
-                                bool anarchy = target.anarchy;
-                                // Checks if the tile we want to expand to is claimable (If it is neutral and if it has suitable terrain)
-                                bool claimable = target.claimable && target.state == null;
-                                // If both of these are true
-                                if (claimable){
-                                    // If the tile isnt yet anarchic
-                                    // if (!anarchy && canExpand){
-                                    //     if (tile.state != null){
-                                    //         // Uhh, controlled anarchy?
-                                    //         addAnarchy(pos);
-                                    //     }
-                                    // }
-                                    if (anarchy && isState && Random.Range(0f, 1f) < anarchyConquestChance * target.fertility){
-                                        // COLONIALISM!!!!!!!!!!!!!!
-                                        tile.state.AddTile(pos);
-                                    }
-                                }
-                            }
-                        }   
-                    }
-                }
-            }
-        }
-    }
-
-    public void addAnarchy(Vector3Int pos){
-        if (tiles.ContainsKey(pos)){
-            Tile tile = getTile(pos);
+    public void SetAnarchy(int x, int y, bool state){
+        Tile tile = getTile(x, y);
+        if (tile != null){
             // If the tile doesnt have anarchy add anarchy
-            if (!tile.anarchy){
-                tile.anarchy = true;
-                updateColor(pos);
+            tile.anarchy = state;
+            updateColor(x, y);
+
+            if (state){
                 anarchy.Add(tile);
-            }
-        }
-    }
-
-    public void RemoveAnarchy(Vector3Int pos){
-        if (tiles.ContainsKey(pos)){
-            Tile tile = getTile(pos);
-            // If the tile doesnt have anarchy add anarchy
-            if (tile.anarchy){
-                tile.anarchy = false;
-                updateColor(pos);
+            } else {
                 anarchy.Remove(tile);
             }
         }
     }
 
-    void createRandomState(Vector3Int pos){
+    void createRandomState(int x, int y){
         State newState = State.CreateRandomState();
         // Adds it to the nations list
         if (!states.Contains(newState)){
@@ -246,14 +184,14 @@ public class TileManager : MonoBehaviour
         // Sets the parent of the nation to the nationholder object
         newState.tileManager = this;
         // And adds the very first tile :D
-        newState.AddTile(pos);
+        newState.AddTile(x, y);
         // Connects the tile to ticks
         Events.stateTick += newState.Tick;
     }
 
-    public void Border(Vector3Int position){
+    public void Border(int x, int y){
         // Gets a tile
-        Tile tile = getTile(position);
+        Tile tile = getTile(x, y);
         if (tile != null){
             // If a tile is a border at all
             tile.border = false;
@@ -271,61 +209,61 @@ public class TileManager : MonoBehaviour
                         continue;
                     }
                     // If not, gets the adjacent tiles positon
-                    Vector3Int pos = new Vector3Int(xd,yd) + position;
+                    Vector2Int pos = new Vector2Int(xd + x, yd + y);
                     // Makes sure that tile exists
-                    if (getTile(pos) != null && (getTile(pos).state != tile.state)){
+                    if (getTile(pos.x, pos.y) != null && (getTile(pos.x, pos.y).state != tile.state)){
                         // If it does and it doesnt have the same owner as us, makes this tile a border :D
                         // But wait, theres more!
                         tile.border = true;
 
-                        if (tile.state != null && getTile(pos).state != tile.state && getTile(pos).state != null){
+                        if (tile.state != null && getTile(pos.x, pos.y).state != tile.state && getTile(pos.x, pos.y).state != null){
                             tile.nationalBorder = true;
 
                             //var nation = tile.owner;
-                            var borderState = getTile(pos).state;
+                            var borderState = getTile(pos.x, pos.y).state;
 
                             if (!tile.borderingStates.Contains(borderState)){
                                 tile.borderingStates.Add(borderState);
                             }
                         }
 
-                        if (getTile(pos).state == null){
+                        if (getTile(pos.x, pos.y).state == null){
                             // If the tested border is neutral
-                            if (getTile(pos).claimable){
+                            if (getTile(pos.x, pos.y).claimable){
                                 // Makes it a frontier
                                 // Frontier tiles are the only ones that can colonize neutral tiles
                                 tile.frontier = true;
                             }
                         }
                         // Updates the color (For border shading)
-                        updateColor(position);
+                        updateColor(x, y);
                     }
                 }
             }
             // Updates the color (In case the tile no longer has special properties :<)
-            updateColor(position);
+            updateColor(x, y);
             
         } else {
             return;
         }
     }
 
-    public void updateBorders(Vector3Int position){
+    public void updateBorders(int x, int y){
         // Gets the tile at a position
-        Tile tile = getTile(position);
+        Tile tile = getTile(x, y);
         if (tile != null){
             // If the tile exists goes through its adjacent tiles
             for (int xd = -1; xd <= 1; xd++){
                     for (int yd = -1; yd <= 1; yd++){
                         // gets the tiles key of this offset
-                        Vector3Int pos = new Vector3Int(xd,yd) + position;
-                        if (getTile(pos) != null){
+                        Vector2Int pos = new Vector2Int(xd + x, yd + y);
+                        if (getTile(pos.x, pos.y) != null){
                             // Makes that tile check its borders
                             // NOTE: Also runs on self :D
-                            Border(pos);
+                            Border(pos.x, pos.y);
                             if (tile.state != null){
-                                if (getTile(pos).state != null){
-                                    getTile(pos).state.getBorders();
+                                if (getTile(pos.x, pos.y).state != null){
+                                    getTile(pos.x, pos.y).state.getBorders();
                                 }
                             }
                         }
@@ -336,11 +274,10 @@ public class TileManager : MonoBehaviour
         }
     }
 
-    public Tile getTile(Vector3Int position){
+    public Tile getTile(int x, int y){
         // makes sure the key we are getting exists
-        if (tiles.ContainsKey(position)){
-            // If it does, returns the tile
-            return tiles[position];
+        if (x < worldSize.x - 1 && y < worldSize.y - 1 && x >= 0 && y >= 0){
+            return tiles[x,y];
         }
         return null;
     }
@@ -360,23 +297,26 @@ public class TileManager : MonoBehaviour
 
     public void updateAllColors(bool updateOcean = false){
         // LAGGY
-        foreach (var entry in tiles){
-            if (entry.Value.biome.terrainType == BiomeTerrainType.WATER && !updateOcean){
-                continue;
+        for (int y = 0; y < worldSize.y; y++){
+            for (int x = 0; x < worldSize.x; x++){
+                Tile tile = getTile(x, y);
+                if (tile != null){
+                    if (tile.biome.terrainType == BiomeTerrainType.WATER && !updateOcean){
+                        continue;
+                    }
+                    updateColor(x, y);
+                }
             }
-            // Goes through every tile and updates its color
-            updateColor(entry.Key);
         }
     }
 
 
     // COLOR
-    public void updateColor(Vector3Int position){
-        tilemap.SetTileFlags(position, TileFlags.None);
+    public void updateColor(int x, int y){
         // Gets the final color
         Color finalColor = new Color();
         // Gets the tile we want to paint
-        Tile tile = getTile(position);
+        Tile tile = getTile(x, y);
         State state = tile.state;
         State liege = null;
         bool isCapital = false;
@@ -513,8 +453,7 @@ public class TileManager : MonoBehaviour
         }
         
         // Finally sets the color on the tilemap
-        tilemap.SetColor(position, finalColor);
-        tilemap.SetTileFlags(position, TileFlags.LockColor);
+        map.SetPixelColor(x, y, finalColor);
     }
 
     void ChangeMapMode(MapModes newMode){
@@ -557,11 +496,14 @@ public class TileManager : MonoBehaviour
         bool overUI = EventSystem.current.IsPointerOverGameObject();
 
         // Converts the mouse position to a grid position
-        Vector3Int mouseGridPos = tilemap.WorldToCell(globalMousePos);
-        if (tiles.ContainsKey(mouseGridPos)){
+        int x = Mathf.RoundToInt(Mathf.Round(Input.mousePosition.x / 6.5f) * 6.5f);
+        int y = Mathf.RoundToInt(Mathf.Round(Input.mousePosition.y / 6.5f) * 6.5f);
+        Vector2Int mouseGridPos = new Vector2Int(x, y);
+        Tile tile = getTile(mouseGridPos.x, mouseGridPos.y);
+        if (tile != null){
             if (!overUI){
                 // If the mouse isnt over a ui element, gets the tile
-                Tile tile = tiles[mouseGridPos];
+                
                 // If the tile has an owner
                 if (tile != null && tile.state != null){
                     // Checks if we arent just clicking on the same tile

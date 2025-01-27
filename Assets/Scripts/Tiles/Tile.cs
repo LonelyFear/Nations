@@ -20,7 +20,6 @@ public class Tile
     public bool nationalBorder;
     public List<State> borderingStates = new List<State>();
     public Tile[] borderingTiles = new Tile[0];
-    public Vector3Int[] borderingPositions = new Vector3Int[0];
     // Population
     public NativeList<Pop> pops = new NativeList<Pop>(Allocator.Persistent);
     public const int maxPops = 50;
@@ -34,7 +33,7 @@ public class Tile
     public Culture majorityCulture;
     public Tech tech;
     public float development;
-    public Vector3Int tilePos;
+    public Vector2Int tilePos;
     public bool coastal;
     public bool anarchy;
 
@@ -59,9 +58,9 @@ public class Tile
             //Debug.Log(development);
         };
         if (population >= 50 && state == null && !anarchy){ 
-            tileManager.addAnarchy(tilePos);
+            tileManager.SetAnarchy(tilePos.x, tilePos.y, true);
         } else if (population < 50 && anarchy){
-            tileManager.RemoveAnarchy(tilePos);
+            tileManager.SetAnarchy(tilePos.x, tilePos.y, false);
         }
 
         if (biome.terrainType != BiomeTerrainType.WATER){
@@ -143,7 +142,7 @@ public class Tile
     }
 
     public void UpdateColor(){
-        tileManager.updateColor(tilePos);
+        tileManager.updateColor(tilePos.x, tilePos.y);
     }
 
    public void CreatePop(int amount, Culture culture, Tech tech = new Tech(), float workforceRatio = 0.25f){
