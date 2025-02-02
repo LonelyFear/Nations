@@ -21,6 +21,7 @@ public class TectonicSimulation : MonoBehaviour{
         worldSize = world.worldSize;
 
         CreatePlates(4, 2);
+        InitHeightMap();
         //InitHeightMap(Random.Range(1, 1000), 20);
         
     }
@@ -30,6 +31,22 @@ public class TectonicSimulation : MonoBehaviour{
         print((years + 1) + " Million Years");
         SimulateStep();
         UpdateVisuals();
+    }
+
+    void InitHeightMap(){
+        System.Random rand = new System.Random(world.noiseSeed);
+        float[,] heights = Noise.GenerateNoiseMap(worldSize.x, worldSize.y, rand.Next(-10000, 10000), 100, 8);
+        for (int y = 0; y < worldSize.y; y++){
+            for (int x = 0; x < worldSize.x; x++){
+                float height = Mathf.Lerp(0.5f, 0.7f, heights[x,y]);
+                WorldTile tile = tiles[x,y];
+                tile.topCrust.elevation = height;
+                if (height > 0.6){
+                    tile.topCrust.crustType = CrustTypes.CONTINENTAL;
+                }
+            }
+        }
+            
     }
 
     void SimulateStep(){
@@ -88,6 +105,10 @@ public class TectonicSimulation : MonoBehaviour{
             for (int x = 0; x < worldSize.x; x++){
                 WorldTile tile = tiles[x,y];
                 foreach (CrustTile crust in tile.crust.ToArray()){
+                    // Mid ocean ridge generation
+                    if (crust.age < 5){
+                        crust.elevation -= Random.Range(0.0075f, 0.01f);
+                    }
                     // Allows crust to move next frame
                     crust.moved = false;
                 }
@@ -95,7 +116,9 @@ public class TectonicSimulation : MonoBehaviour{
                 if (tile.crust.Count < 1){
                     CrustTile newCrust = new CrustTile(){
                         plate = tile.lastPlate,
-                        pos = new Vector2Int(x, y)
+                        pos = new Vector2Int(x, y),
+                        age = 0,
+                        elevation = Random.Range(0.55f, 0.565f)
                     };
                     tile.crust.Add(newCrust);
                     tile.topCrust = newCrust;
@@ -103,30 +126,53 @@ public class TectonicSimulation : MonoBehaviour{
                 tile.topCrust = tile.crust[0];      
                 // Convergent crust
                 if (tile.crust.Count > 1){
+                    // Gets plate on top
                     CrustTile topCrust = null;
-                    int highestAge = int.MinValue;
+                    int lowestAge = int.MaxValue;
                     foreach (CrustTile crust in tile.crust.ToArray()){
-                        if (crust.age + crust.plate.density > highestAge){
+                        int continentalFactor = 0;
+                        if (crust.crustType == CrustTypes.CONTINENTAL){
+                            continentalFactor = 1000000;
+                        }
+                        int ageModified = crust.age + crust.plate.density - continentalFactor;
+                        if (ageModified < lowestAge){
                             topCrust = crust;
-                            highestAge = crust.age + crust.plate.density;
+                            lowestAge = ageModified;
                         }
                     }
                     tile.topCrust = topCrust;
                     foreach (CrustTile crust in tile.crust.ToArray()){
                         if (crust != tile.topCrust){
                             // Oceanic subduction
-                            crust.lostElevation += Random.Range(0.01f, 0.04f);
+                            if (crust.crustType == CrustTypes.OCEANIC){
+                                crust.lostElevation += Random.Range(0.025f, 0.01f);
 
-                            if (crust.lostElevation >= 0.2f){
-                                // Island chain volcanoes
+                                if (crust.lostElevation >= crust.elevation){
+                                    // Island chain volcanoes
+                                    topCrust.elevation += Random.Range(0.0025f, 0.0125f);
+                                    tile.crust.Remove(crust);
+                                }                                
+                            } else {
+                                // Continental Collision
                                 topCrust.elevation += Random.Range(0.0025f, 0.0125f);
-                                tile.crust.Remove(crust);
+                                crust.lostElevation += Random.Range(0.05f, 0.02f);
+
+                                if (crust.lostElevation >= crust.elevation){
+                                    tile.crust.Remove(crust);
+                                }
                             }
+
                         }
                     }
                 }     
             }
-        }            
+        } 
+        // Modifies plate velocity
+        foreach (Plate plate in plates){
+            if (Random.Range(0f, 1f) <= 0.5f){
+                plate.dir += new Vector2(Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f));
+            }
+        }           
     }
 
     void UpdateVisuals(){
@@ -134,16 +180,20 @@ public class TectonicSimulation : MonoBehaviour{
             for (int x = 0; x < worldSize.x; x++){
                 WorldTile tile = tiles[x,y];
                 if (tile.crust.Count > 0){
-                    //mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, tile.topCrust.plate.color, tile.topCrust.elevation));
+                    
                     
                     mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, Color.blue, tile.topCrust.elevation + 0.4f));
                     if (tile.topCrust.elevation > 0.6f){
-                        mapTexture.SetPixelColor(x, y, Color.green);
-                        if (tile.topCrust.elevation > 0.8f){
-                            mapTexture.SetPixelColor(x, y, Color.green);
-                        }
+                        mapTexture.SetPixelColor(x, y, Color.Lerp(Color.green, Color.yellow, (tile.topCrust.elevation - 0.6f)/(0.4f)));
                     }
-                    
+                    //mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, tile.topCrust.plate.color, tile.topCrust.elevation));
+                    /*
+                    if (tile.topCrust.crustType == CrustTypes.CONTINENTAL){
+                        mapTexture.SetPixelColor(x, y, Color.red);
+                    } else {
+                        mapTexture.SetPixelColor(x, y, Color.blue);
+                    }
+                    */
                     //mapTexture.SetPixelColor(x, y, Color.Lerp(Color.red, Color.black, (float)tile.crust[0].age / 200f));
                 } else {
                     mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, Color.red, 0.05f));
@@ -312,7 +362,7 @@ public class TectonicSimulation : MonoBehaviour{
     }
     class CrustTile{
         public bool moved = false;
-        public int age = 0;
+        public int age = 10;
         public int densityOffset;
         public Vector2Int pos = new Vector2Int();
         public CrustTypes crustType = CrustTypes.OCEANIC;

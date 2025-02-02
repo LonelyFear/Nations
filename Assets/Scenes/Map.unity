@@ -602,7 +602,7 @@ MonoBehaviour:
   worldSize: {x: 200, y: 100}
   preset: {fileID: 11400000, guid: 071ae9a8987e9114bae2cb060e5182f6, type: 2}
   fixToTexture: 1
-  noiseSeed: 0
+  noiseSeed: 3501
   randomizeSeed: 0
   totalNoiseScale: 20
   persistence: 0

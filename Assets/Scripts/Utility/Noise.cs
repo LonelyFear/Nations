@@ -31,8 +31,8 @@ public static class Noise
                 float noiseValue = 0;
 
                 for (int i = 0; i < octaves; i++){
-                    float sampleX = x / scale * frequency;
-                    float sampleY = y / scale * frequency;
+                    float sampleX = x / scale * frequency + octaveOffsets[i].x;
+                    float sampleY = y / scale * frequency + octaveOffsets[i].y;
                     float perlinValue = Mathf.PerlinNoise(sampleX, sampleY);
                     
                     noiseValue += perlinValue * amplitude;
@@ -60,4 +60,10 @@ public static class Noise
             
         return noiseMap;
     }
+    /*
+    public static float Evaluate(float value){
+        float a = 3f;
+        float b = 2.2f;
+    }
+    */
 }
