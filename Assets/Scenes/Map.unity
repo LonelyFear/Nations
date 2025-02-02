@@ -602,14 +602,11 @@ MonoBehaviour:
   worldSize: {x: 100, y: 50}
   preset: {fileID: 11400000, guid: 071ae9a8987e9114bae2cb060e5182f6, type: 2}
   fixToTexture: 1
-  noiseSeed: 80225
+  noiseSeed: 0
   randomizeSeed: 0
-  totalNoiseScale: 70
-  scales:
-  - 1
-  - 0.75
-  - 0.25
-  - 0.05
+  totalNoiseScale: 20
+  persistence: 0
+  lacunarity: 0
   weights:
   - 0.6
   - 0.2
@@ -674,7 +671,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 184318058}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5a39c2bb36ec09d49872f9813a9c5d08, type: 3}
   m_Name: 

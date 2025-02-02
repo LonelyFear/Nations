@@ -46,12 +46,12 @@ public class GenerateWorld : MonoBehaviour
     [Tooltip("If true, makes the world size y scale with the proportion to texture y")]
     public bool fixToTexture = true;
     [Header("Random Noise Settings")]
-    public float noiseSeed = 0;
+    public int noiseSeed = 0;
     public bool randomizeSeed = false;
     [Tooltip("The noise scale for RANDOM NOISE | Higher scale = Smoother")]
     public int totalNoiseScale;
-    [Tooltip("Higher scale = Smoother")]
-    public float[] scales = new float[4];
+    public float persistence;
+    public float lacunarity;
     [Tooltip("Weights the different noise maps")]
     public float[] weights = new float[4];
 
@@ -79,6 +79,7 @@ public class GenerateWorld : MonoBehaviour
 
     float[,] tempVals;
     float[,] humidVals;
+    float[,] altitudeVals;
 
     float landTiles = 0;
     public Tile[,] tiles;
@@ -86,7 +87,7 @@ public class GenerateWorld : MonoBehaviour
     void Start()
     {
         //worldSize = Vector2Int.RoundToInt(map.GetComponent<RectTransform>().sizeDelta);
-        /*
+        
         biomes = new string[worldSize.x, worldSize.y];
         tempVals = new float[worldSize.x, worldSize.y];
         humidVals = new float[worldSize.x, worldSize.y];
@@ -112,7 +113,6 @@ public class GenerateWorld : MonoBehaviour
         // Sends worldgen finished signal
         GetComponent<WorldgenEvents>().worldgenFinish();
         print(JsonUtility.ToJson(new Biome()));
-        */
     }
     void fitYToTexture(){
         float texScale = preset.noiseTexture.Size().x / worldSize.x;
@@ -126,54 +126,26 @@ public class GenerateWorld : MonoBehaviour
         return val;
     }
 
-    float getAltitude(int x, int y){
-        float totalNoise;
-        // If there isnt a predifined noise texture
-        if (!preset.noiseTexture){
-            
-            float grains = getNoise(x,y, scales[3], noiseSeed + 7852);
-            float detail = getNoise(x,y,scales[2], noiseSeed);
-            float definition = getNoise(x,y,scales[1], noiseSeed + 9830);
-            float shape = getNoise(x, y,scales[0], noiseSeed - 3573);
+    float[,] getHumidMap(int width, int height, float scale){
+        float[,] humids = new float[width, height];
+        humids = Noise.GenerateNoiseMap(width, height, noiseSeed - 5382, scale, 8);
 
-            // Merges the different noise maps and weights them to get more interesting terrain
-            totalNoise = (shape * weights[0]) + (definition * weights[1]) + (detail * weights[2]) + (grains * weights[3]);
-        } else {
-            // Stretches or squashes the values to represent the whole noise texture
-            Vector2 texScale = preset.noiseTexture.Size() / worldSize;
-            // Gets the pixel pos (Rounds tex scale multiplied by the current x and y)
-            Vector2Int pixel = Vector2Int.RoundToInt(new Vector2(x * texScale.x, y * texScale.y));
-            // Gets the value of the red channel at the pixel position
-            totalNoise = preset.noiseTexture.GetPixel(pixel.x, pixel.y).r;
+        return humids;
+    }
+    float[,] getTempMap(int width, int height, float scale){
+        float[,] temps = new float[width, height];
+        temps = Noise.GenerateNoiseMap(width, height, noiseSeed + 5382, scale, 8);
+        for (int y = 0; y < height; y++){
+            for (int x = 0; x < width; x++){
+                float equatorPos = worldSize.y / 2;
+                float tempValue = 1f - Mathf.Abs(equatorPos - y) / equatorPos;
+                tempValue = Mathf.Clamp(tempValue + tempOffset, 0f, 1f);
+
+                temps[x,y] *= tempValue;                
+            }
         }
-        return totalNoise;
-    }
 
-    float getHumid(int x, int y){
-        float clouds = getNoise(x,y, 0.01f, noiseSeed + 642);
-        float systems = getNoise(x,y, 0.2f, noiseSeed + 753);
-        float seas = getNoise(x,y, 0.1f, noiseSeed + 257);
-        float shape = getNoise(x, y, 0.3f, noiseSeed);
-
-        float totalNoise = (shape * 0.9f) + (seas * 0.1f);
-        totalNoise = (totalNoise * 0.3f) + (tempVals[x,y] * 0.7f);
-        return totalNoise;
-    }
-
-    float getTempRandomNoise(int x, int y){
-        float steam = getNoise(x, y, 0.1f, noiseSeed - 332);
-        float drifts = getNoise(x, y, 0.5f, noiseSeed - 986);
-        float winds = getNoise(x, y, 1f, noiseSeed - 9862);
-
-        return (winds * 0.6f) + (drifts * 0.3f) + (steam * 0.1f);
-    }
-    float getTemp(int x, int y){
-        float equatorPos = worldSize.y / 2;
-        float tempValue = 1f - Mathf.Abs(equatorPos - y) / equatorPos;
-        tempValue = Mathf.Clamp(tempValue + tempOffset, 0f, 1f);
-        float temp = Mathf.Lerp(getTempRandomNoise(x, y), tempValue, 0.7f);
-        temp = Mathf.Clamp01(temp - ((getAltitude(x,y) - preset.oceanThreshold)/(1.0f/preset.oceanThreshold)));
-        return temp;
+        return temps;
     }
 
     Tile getTile(int x, int y){
@@ -183,12 +155,9 @@ public class GenerateWorld : MonoBehaviour
         return null;
     }
     void generateWorld(){
-        for (int y = 0; y < worldSize.y; y++){
-            for (int x = 0; x < worldSize.x; x++){
-                tempVals[x,y] = getTemp(x,y);
-                humidVals[x,y] = getHumid(x,y);
-            }
-        }
+        altitudeVals = Noise.GenerateNoiseMap(worldSize.x + 1, worldSize.y + 1, (int)noiseSeed, totalNoiseScale);
+        tempVals = getTempMap(worldSize.x, worldSize.y, 20);
+        humidVals = getHumidMap(worldSize.x, worldSize.y, 5);
             
         // Worldsize works like lists, so 0 is the first index and the last index is worldsize - 1
         for (int y = 0; y < worldSize.y; y++){
@@ -201,7 +170,10 @@ public class GenerateWorld : MonoBehaviour
                 Tile newTile = new Tile();
 
                 biomes[x,y] = SetBiome(x, y);
-                tiles[x, y] = newTile;
+                if (x == worldSize.x - 1&& y == worldSize.y - 1){
+                    print(biomes[x,y]);
+                }
+                tiles[x,y] = newTile;
             }
         }
         FinalChecks();
@@ -244,12 +216,12 @@ public class GenerateWorld : MonoBehaviour
             }  
         }   
     }
-    String SetBiome(int x, int y){
+    string SetBiome(int x, int y){
 
-        float altitude = getAltitude(x,y);
+        float altitude = altitudeVals[x,y];
         float seaLevel = preset.oceanThreshold;
 
-        String biome;
+        string biome;
 
         // If we are below the ocean threshold
         if (altitude <= seaLevel){

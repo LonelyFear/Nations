@@ -1,3 +1,4 @@
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,7 +9,7 @@ public class MapTextureManager : MonoBehaviour
     RawImage image;
 
     Texture2D texture;
-
+    float[,] heights;
     void Awake(){
         GetComponent<RectTransform>().sizeDelta = (Vector2)generator.worldSize;
         float scale = 1920 / generator.worldSize.x;
@@ -20,10 +21,17 @@ public class MapTextureManager : MonoBehaviour
         int imgY = Mathf.RoundToInt(image.GetComponent<RectTransform>().sizeDelta.y);
         imageSize = new Vector2Int(imgX, imgY);
         InitializeTexture();
+        //heights = Noise.GenerateNoiseMap(imageSize.x, imageSize.y, 20, generator.totalNoiseScale, 8, 0.5f, 2f);
     }
-
+    
     void Update(){
-        //SetPixelColor(Random.Range(0, imageSize.x - 1), Random.Range(0, imageSize.y - 1), new Color(Random.Range(0f, 1f),Random.Range(0f, 1f),Random.Range(0f, 1f)));
+        // heights = Noise.GenerateNoiseMap(imageSize.x, imageSize.y, generator.noiseSeed, generator.totalNoiseScale, 8, generator.persistence, generator.lacunarity);
+        // for (int y = 0; y < imageSize.y; y++){
+        //     for (int x = 0; x < imageSize.x; x++){
+        //         //print(heights[x,y]);
+        //         SetPixelColor(x, y, Color.Lerp(Color.black, Color.white, heights[x,y]));
+        //     }
+        // }            
     }
 
     public void SetPixelColor(int x, int y, Color color){

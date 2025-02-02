@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using UnityEngine;
-
+using UnityEngine.Experimental.AI;
+using UnityEngine.Rendering.Universal;
 using Random = UnityEngine.Random;
 
 public class TectonicSimulation : MonoBehaviour{
@@ -11,32 +13,107 @@ public class TectonicSimulation : MonoBehaviour{
 
     Vector2Int worldSize;
     List<Plate> plates = new List<Plate>();
-    Tile[,] tiles;
+    WorldTile[,] tiles;
+    int years = 0;
 
-    public void Start(){
+    void Start(){
         worldSize = world.worldSize;
 
-        CreatePlates(4, 2);
-        InitHeightMap(Random.Range(1, 1000), 0.8f);
+        CreatePlates(1, 2);
+        //InitHeightMap(Random.Range(1, 1000), 20);
+        
     }
 
-    void InitHeightMap(float seed, float scale){
+    void Update(){
+        years++;
+        //print((years + 1) + " Million Years");
+        SimulateStep();
+        UpdateVisuals();
+    }
+
+    void SimulateStep(){
+        foreach (Plate plate in plates){
+            plate.diagDir = new Vector2Int(0,0);
+            plate.moveStep += new Vector2Int(1,1);
+            if (plate.moveStep.x > Mathf.Abs(1 / Mathf.Abs(plate.dir.x % 1))){
+                plate.moveStep.x = 0;
+                plate.diagDir.x = (int) Mathf.Sign(plate.dir.x);
+            }   
+            if (plate.moveStep.y > Mathf.Abs(1 / Mathf.Abs(plate.dir.y % 1))){
+                plate.moveStep.y = 0;
+                plate.diagDir.y = (int) Mathf.Sign(plate.dir.y);
+            }       
+        }
         for (int y = 0; y < worldSize.y; y++){
             for (int x = 0; x < worldSize.x; x++){
-                float elevation = Mathf.PerlinNoise(x * 0.1f + seed, y * 0.1f + seed);
-                Tile tile = tiles[x,y];
-                tile.elevation = elevation;
-                mapTexture.SetPixelColor(x, y, Color.Lerp(tile.plate.displayColor, Color.black, tile.elevation));
-                if (tile.elevation <= 0.4f){
-                    mapTexture.SetPixelColor(x, y, Color.Lerp(tile.plate.displayColor, Color.blue, 0.8f));
-                }
+                WorldTile tile = tiles[x,y];
+                tile.lastPlate = tile.crust[0].plate;
+                
+                foreach (CrustTile crust in tile.crust.ToArray()){
+                    crust.age++;
 
+                    int dx = (int) crust.plate.dir.x;
+                    int dy = (int) crust.plate.dir.y;
+                    dx += crust.plate.diagDir.x;
+                    dy += crust.plate.diagDir.y;
+
+                    int moveX = x + dx;
+                    int moveY = y + dy;
+
+                    if (moveX > worldSize.x - 1){
+                        moveX = 0;
+                    }
+                    if (moveX < 0){
+                        moveX = worldSize.x - 1;
+                    }
+                    if (moveY > worldSize.y - 1){
+                        moveY = 0;
+                    }
+                    if (moveY < 0){
+                        moveY = worldSize.y - 1;
+                    }
+                    if (!crust.moved){
+                        crust.pos = new Vector2Int(moveX, moveY);
+                        tile.crust.Remove(crust);   
+                        tiles[moveX, moveY].crust.Add(crust);
+                        crust.moved = true;                        
+                    }                 
+                }
+            }
+        }
+        for (int y = 0; y < worldSize.y; y++){
+            for (int x = 0; x < worldSize.x; x++){
+            WorldTile tile = tiles[x,y];
+                foreach (CrustTile crust in tile.crust.ToArray()){
+                    crust.moved = false;
+                }
+                if (tile.crust.Count < 1){
+                    tile.crust.Add(new CrustTile(){
+                        plate = tile.lastPlate,
+                        pos = new Vector2Int(x, y)
+                    });
+                }           
+            }
+        }            
+    }
+
+    void UpdateVisuals(){
+        for (int y = 0; y < worldSize.y; y++){
+            for (int x = 0; x < worldSize.x; x++){
+                WorldTile tile = tiles[x,y];
+                if (tile.crust.Count > 0){
+                    mapTexture.SetPixelColor(x, y, tile.crust[0].plate.color);
+                    //mapTexture.SetPixelColor(x, y, Color.Lerp(Color.red, Color.black, (float)tile.crust[0].age / 200f));
+                } else {
+                    mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, Color.red, 0.05f));
+                }
+                
             }
         }
     }
 
     void CreatePlates(int gridSizeX, int gridSizeY){
-        tiles = new Tile[worldSize.x,worldSize.y];
+        tiles = new WorldTile[worldSize.x,worldSize.y];
 
         // Points per grid cell
         int ppcX = worldSize.x / gridSizeX;
@@ -48,8 +125,9 @@ public class TectonicSimulation : MonoBehaviour{
                 
                 points[gx,gy] = new Vector2Int(gx * ppcX + Random.Range(0, ppcX), gy * ppcY + Random.Range(0, ppcY));
                 plates.Add(new Plate(){
-                    displayColor = new Color(Random.Range(0f, 1f), Random.Range(0f, 1f), Random.Range(0f, 1f)),
-                    origin = points[gx,gy]
+                    color = new Color(Random.Range(0f, 1f), Random.Range(0f, 1f), Random.Range(0f, 1f)),
+                    origin = points[gx,gy],
+                    dir = new Vector2(Random.Range(-0.5f, 0.5f), Random.Range(-0.5f, 0.5f))
                 });
                 mapTexture.SetPixelColor(points[gx,gy], Color.black);
             }
@@ -58,18 +136,16 @@ public class TectonicSimulation : MonoBehaviour{
         // Plate selection
         for (int x = 0; x < worldSize.x; x++){
             for (int y = 0; y < worldSize.y; y++){
-                tiles[x,y] = new Tile();
+                tiles[x,y] = new WorldTile();
                 float closestDist = Mathf.Infinity;
                 Vector2Int nearestPoint = new Vector2Int();
 
                 for (int dx = -1; dx < 2; dx++){
                     for (int dy = -1; dy < 2; dy++){
-                        Debug.Log(ppcX);
-                        Debug.Log(x / ppcX);
+
                         int gridX = x / ppcX;
                         int gridY = y / ppcY;
 
-                        Debug.Log(gridX + dx);
                         int tx = gridX + dx;
                         int ty = gridY + dy;
 
@@ -87,24 +163,42 @@ public class TectonicSimulation : MonoBehaviour{
                 }
                 foreach (Plate plate in plates){
                     if (plate.origin == nearestPoint){
-                        tiles[x,y].plate = plate;
+                        tiles[x,y].crust.Add(new CrustTile(){
+                            plate = plate,
+                            pos = new Vector2Int(x, y)
+                        });
                     }
                 }
-                mapTexture.SetPixelColor(x, y, tiles[x,y].plate.displayColor);
+                mapTexture.SetPixelColor(x, y, tiles[x,y].crust[0].plate.color);
             }
         }
             
     }
 
-    class Tile{
-        
+    public enum CrustTypes{
+        OCEANIC,
+        CONTINENTAL,
+    }
+
+    class WorldTile{
+        public float elevation = 0.5f;
+        public List<CrustTile> crust = new List<CrustTile>();
+        public Plate lastPlate;
+    }
+    class CrustTile{
+        public bool moved = false;
+        public int age = 0;
+        public Vector2Int pos = new Vector2Int();
+        public CrustTypes crustType = CrustTypes.OCEANIC;
         public Plate plate;
-        public float elevation;
+        public float elevation = 0.5f;
     }
 
     class Plate{
         public Vector2Int origin;
-        public Color displayColor;
-        public Vector2Int dir;
+        public Color color;
+        public Vector2 dir;
+        public Vector2Int diagDir;
+        public Vector2Int moveStep;
     }
 }

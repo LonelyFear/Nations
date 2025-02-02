@@ -77,8 +77,8 @@ public class Tile
                 float naturalGrowthRate = birthRate - pop.deathRate;
                 int totalChange = (int)((float)pop.size * naturalGrowthRate);
 
-                if (UnityEngine.Random.Range(0f, 1f) < pop.size * naturalGrowthRate % 1){
-                    totalChange += 1;
+                if (UnityEngine.Random.Range(0f, 1f) < Mathf.Abs(pop.size * naturalGrowthRate % 1)){
+                    totalChange += (int)Mathf.Sign(naturalGrowthRate);
                 }
 
                 ChangePopulation(totalChange);
