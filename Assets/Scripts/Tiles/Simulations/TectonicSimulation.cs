@@ -41,7 +41,7 @@ public class TectonicSimulation : MonoBehaviour{
     void HydraulicErosion(){
         // Hydraulic erosion
         List<Vector2Int> rivers = new List<Vector2Int>();
-        Vector2Int[] samplePoints = new Vector2Int[Mathf.RoundToInt((worldSize.x * worldSize.y) / 8)];
+        Vector2Int[] samplePoints = new Vector2Int[25];
         int attempts = 0;
         for (int i = 0; i < samplePoints.Length; i++){
             Vector2Int samplePos = new Vector2Int(Random.Range(0, worldSize.x - 1), Random.Range(0, worldSize.y - 1));
@@ -73,7 +73,7 @@ public class TectonicSimulation : MonoBehaviour{
                                 canContinue = true;
                                 riverPos = newPos;
                                 if (waterFlow > 0.01f){
-                                    tile.topCrust.elevation = Mathf.Lerp(tile.topCrust.elevation, seaLevel + 0.1f, waterFlow/10f);
+                                    tile.topCrust.elevation += 0.1f;
                                     //target.topCrust.elevation += waterFlow/100f;
                                 }
                                 
@@ -288,33 +288,22 @@ public class TectonicSimulation : MonoBehaviour{
     }
 
     void UpdateVisuals(){
+        Color32[] colors = mapTexture.texture.GetPixels32();
+        int index = 0;
         for (int y = 0; y < worldSize.y; y++){
             for (int x = 0; x < worldSize.x; x++){
+                index = (y * worldSize.x) + x;
                 WorldTile tile = tiles[x,y];
-                if (tile.crust.Count > 0){
-                    
-                    
-                    mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, Color.blue, tile.topCrust.elevation + 0.4f));
-                    if (tile.topCrust.elevation > seaLevel){
-                        mapTexture.SetPixelColor(x, y, Color.Lerp(Color.green, Color.yellow, (tile.topCrust.elevation - 0.6f)/(0.4f)));
-                    }
-                    //mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, Color.white, tile.topCrust.elevation));
-                    //mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, tile.topCrust.plate.color, tile.topCrust.elevation));
-                    /*
-                    if (tile.topCrust.crustType == CrustTypes.CONTINENTAL){
-                        mapTexture.SetPixelColor(x, y, Color.red);
-                    } else {
-                        mapTexture.SetPixelColor(x, y, Color.blue);
-                    }
-                    */
-                    //mapTexture.SetPixelColor(x, y, Color.Lerp(Color.red, Color.black, (float)tile.crust[0].age / 200f));
-                } else {
-                    mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, Color.red, 0.05f));
+                Color newColor;
+                newColor = Color.Lerp(Color.black, Color.blue, tile.topCrust.elevation + 0.4f);
+                if (tile.topCrust.elevation > seaLevel){
+                    newColor = Color.Lerp(Color.green, Color.yellow, (tile.topCrust.elevation - 0.6f)/(0.4f));
                 }
-
-                
+                colors[index] = newColor;
             }
         }
+        mapTexture.texture.SetPixels32(colors);
+        mapTexture.texture.Apply();
     }
 
     void CreatePlates(int gridSizeX, int gridSizeY){
@@ -345,7 +334,6 @@ public class TectonicSimulation : MonoBehaviour{
                 densities.Remove(densities[densityIndex]);
 
                 plates.Add(newPlate);
-                mapTexture.SetPixelColor(points[gx,gy], Color.black);
             }
         }
         int freeTiles = (worldSize.x * worldSize.y) - plates.Count;

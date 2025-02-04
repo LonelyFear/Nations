@@ -6,9 +6,9 @@ public class MapTextureManager : MonoBehaviour
 {
     public Vector2Int imageSize;
     public GenerateWorld generator;
-    RawImage image;
+    public RawImage image;
 
-    Texture2D texture;
+    public Texture2D texture;
     float[,] heights;
     void Awake(){
         GetComponent<RectTransform>().sizeDelta = (Vector2)generator.worldSize;

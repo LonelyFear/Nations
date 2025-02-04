@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Unity.Mathematics;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Tilemaps;
@@ -77,9 +78,9 @@ public class GenerateWorld : MonoBehaviour
     float[] temps = {0.874f, 0.765f, 0.594f, 0.439f, 0.366f, 0.124f};
     float[] humids = {0.941f, 0.778f, 0.507f, 0.236f, 0.073f, 0.014f, 0.002f};
 
-    float[,] tempVals;
-    float[,] humidVals;
-    float[,] altitudeVals;
+    float[,] tempmap = new float[1000,1000];
+    float[,] humidmap = new float[1000,1000];
+    float[,] heightmap = new float[1000,1000];
 
     float landTiles = 0;
     public Tile[,] tiles;
@@ -89,8 +90,6 @@ public class GenerateWorld : MonoBehaviour
         //worldSize = Vector2Int.RoundToInt(map.GetComponent<RectTransform>().sizeDelta);
         
         biomes = new string[worldSize.x, worldSize.y];
-        tempVals = new float[worldSize.x, worldSize.y];
-        humidVals = new float[worldSize.x, worldSize.y];
         tiles = new Tile[worldSize.x, worldSize.y];
         // /loadedBiomeAggregates = ;
 
@@ -119,33 +118,35 @@ public class GenerateWorld : MonoBehaviour
         worldSize.y = Mathf.RoundToInt(preset.noiseTexture.Size().y / texScale);
     }
 
-    float getNoise(int x, int y, float scale, float noiseSeed){
-        // Higher scale means less smooth
-        var totalScale = scale * totalNoiseScale;
-        var val = Mathf.PerlinNoise((x + 0.1f + noiseSeed)/totalScale,(y + 0.1f + noiseSeed)/totalScale);
-        return val;
-    }
-
     float[,] getHumidMap(int width, int height, float scale){
-        float[,] humids = new float[width, height];
-        humids = Noise.GenerateNoiseMap(width, height, noiseSeed - 5382, scale, 8);
+        float[,] humids = Noise.GenerateNoiseMap(width, height, noiseSeed - 5382, scale, 8);
 
         return humids;
     }
+
     float[,] getTempMap(int width, int height, float scale){
-        float[,] temps = new float[width, height];
-        temps = Noise.GenerateNoiseMap(width, height, noiseSeed + 5382, scale, 8);
+        float[,] tempMap = Noise.GenerateNoiseMap(width, height, noiseSeed + 5382, scale, 8);
+        float[,] falloff = Noise.GenerateFalloffMap(width, height, 2.0f, false);
         for (int y = 0; y < height; y++){
             for (int x = 0; x < width; x++){
-                float equatorPos = worldSize.y / 2;
-                float tempValue = 1f - Mathf.Abs(equatorPos - y) / equatorPos;
-                tempValue = Mathf.Clamp(tempValue + tempOffset, 0f, 1f);
 
-                temps[x,y] *= tempValue;                
+                tempMap[x,y] = Mathf.Clamp01(tempMap[x,y] - falloff[x,y]);                
             }
         }
 
-        return temps;
+        return tempmap;
+    }
+
+    float[,] getHeightMap(int width, int height, float scale){
+        float[,] heightmap = Noise.GenerateNoiseMap(worldSize.x + 1, worldSize.y + 1, (int)noiseSeed, totalNoiseScale);
+        float[,] falloffmap = Noise.GenerateFalloffMap(width, height);
+
+        for (int y = 0; y < height; y++){
+            for (int x = 0; x < width; x++){
+                heightmap[x,y] = Mathf.Clamp01(heightmap[x,y] - falloffmap[x,y]);
+            }
+        }
+        return heightmap;
     }
 
     Tile getTile(int x, int y){
@@ -155,9 +156,9 @@ public class GenerateWorld : MonoBehaviour
         return null;
     }
     void generateWorld(){
-        altitudeVals = Noise.GenerateNoiseMap(worldSize.x + 1, worldSize.y + 1, (int)noiseSeed, totalNoiseScale);
-        tempVals = getTempMap(worldSize.x, worldSize.y, 20);
-        humidVals = getHumidMap(worldSize.x, worldSize.y, 5);
+        heightmap = getHeightMap(worldSize.x, worldSize.y, totalNoiseScale);
+        tempmap = getTempMap(worldSize.x, worldSize.y, 20);
+        humidmap = getHumidMap(worldSize.x, worldSize.y, 5);
             
         // Worldsize works like lists, so 0 is the first index and the last index is worldsize - 1
         for (int y = 0; y < worldSize.y; y++){
@@ -190,7 +191,7 @@ public class GenerateWorld : MonoBehaviour
         for (int y = 0; y < worldSize.y; y++){
             for (int x = 0; x < worldSize.x; x++){
                 Tile tile = tiles[x, y];
-                tile.terrainColor = Color.Lerp(Color.black, Color.blue, humidVals[x,y]);
+                tile.terrainColor = Color.Lerp(Color.black, Color.blue, humidmap[x,y]);
                 string biome = biomes[x,y].ToLower();
                 
                 foreach (Biome aggregate in loadedBiomeAggregates){
@@ -218,7 +219,7 @@ public class GenerateWorld : MonoBehaviour
     }
     string SetBiome(int x, int y){
 
-        float altitude = altitudeVals[x,y];
+        float altitude = heightmap[x,y];
         float seaLevel = preset.oceanThreshold;
 
         string biome;
@@ -390,7 +391,7 @@ public class GenerateWorld : MonoBehaviour
         return biome;
 
         TempTypes getTempType(int x, int y){
-            float temp = tempVals[x,y];
+            float temp = tempmap[x,y];
             if (temp < temps[5]){
                 return TempTypes.POLAR;
             } else if (temp >= temps[5] && temp < temps[4]){
@@ -411,7 +412,7 @@ public class GenerateWorld : MonoBehaviour
         }
 
         HumidTypes getHumidType(int x, int y){
-            float humid = humidVals[x,y];
+            float humid = humidmap[x,y];
             if ( humid < humids[6]){
                 return  HumidTypes.SUPER_ARID;
             } else if (humid >= humids[6] && humid < humids[5]){
