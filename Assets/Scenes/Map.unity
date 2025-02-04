@@ -599,12 +599,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   map: {fileID: 1836568594}
-  worldSize: {x: 200, y: 100}
+  worldSize: {x: 300, y: 150}
   preset: {fileID: 11400000, guid: 071ae9a8987e9114bae2cb060e5182f6, type: 2}
   fixToTexture: 1
-  noiseSeed: 3501
+  noiseSeed: 385622
   randomizeSeed: 0
-  totalNoiseScale: 20
+  totalNoiseScale: 120
   persistence: 0
   lacunarity: 0
   weights:
@@ -678,6 +678,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   world: {fileID: 184318059}
   mapTexture: {fileID: 1836568594}
+  oceanDepth: 0.6
+  seaLevel: 0.6
 --- !u!1 &253897841
 GameObject:
   m_ObjectHideFlags: 0

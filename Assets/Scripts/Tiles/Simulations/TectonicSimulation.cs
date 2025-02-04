@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.ExceptionServices;
 using Unity.Collections;
+using Unity.VisualScripting;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.Experimental.AI;
 using UnityEngine.Rendering.Universal;
@@ -10,7 +13,9 @@ using Random = UnityEngine.Random;
 public class TectonicSimulation : MonoBehaviour{
     public GenerateWorld world;
     public MapTextureManager mapTexture;
-    Dictionary<Vector2Int, float> elevations;
+    public float oceanDepth = 0.2f;
+    public float seaLevel = 0.6f;
+
 
     Vector2Int worldSize;
     List<Plate> plates = new List<Plate>();
@@ -20,9 +25,8 @@ public class TectonicSimulation : MonoBehaviour{
     void Start(){
         worldSize = world.worldSize;
 
-        CreatePlates(4, 2);
+        CreatePlates(4, 4);
         InitHeightMap();
-        //InitHeightMap(Random.Range(1, 1000), 20);
         
     }
 
@@ -30,25 +34,114 @@ public class TectonicSimulation : MonoBehaviour{
         years++;
         print((years + 1) + " Million Years");
         SimulateStep();
+        HydraulicErosion();
         UpdateVisuals();
     }
 
+    void HydraulicErosion(){
+        // Hydraulic erosion
+        List<Vector2Int> rivers = new List<Vector2Int>();
+        Vector2Int[] samplePoints = new Vector2Int[Mathf.RoundToInt((worldSize.x * worldSize.y) / 8)];
+        int attempts = 0;
+        for (int i = 0; i < samplePoints.Length; i++){
+            Vector2Int samplePos = new Vector2Int(Random.Range(0, worldSize.x - 1), Random.Range(0, worldSize.y - 1));
+            while (!samplePoints.Contains(samplePos) && attempts < 50){
+                attempts++;
+                samplePos = new Vector2Int(Random.Range(0, worldSize.x - 1), Random.Range(0, worldSize.y - 1));
+            }
+            samplePoints[i] = samplePos;
+        }
+        // Hydraulic
+        foreach (Vector2Int point in samplePoints){
+            WorldTile tile = tiles[point.x, point.y];
+            if (tile.topCrust.elevation > 0.7f){
+                rivers.Add(point);
+                Vector2Int riverPos = point;
+                bool riverEnd = false;
+                int steps = 0;
+                while (!riverEnd || steps < 50){
+                    steps++;
+                    bool canContinue = false;
+                    for (int dx = -1; dx < 2; dx++){
+                        for (int dy = -1; dy < 2; dy++){
+                            Vector2Int newPos = GetNewPos(new Vector2Int(riverPos.x, riverPos.y), new Vector2Int(dx, dy));
+                            int x = newPos.x;
+                            int y = newPos.y;
+                            WorldTile target = tiles[x, y];
+                            if (target.topCrust.elevation < tile.topCrust.elevation && !canContinue && target.topCrust.elevation > seaLevel && !rivers.Contains(newPos) && Random.Range(0f, 1f) < 0.25f){
+                                float waterFlow = tile.topCrust.elevation - target.topCrust.elevation;
+                                canContinue = true;
+                                riverPos = newPos;
+                                if (waterFlow > 0.01f){
+                                    tile.topCrust.elevation = Mathf.Lerp(tile.topCrust.elevation, seaLevel + 0.1f, waterFlow/10f);
+                                    //target.topCrust.elevation += waterFlow/100f;
+                                }
+                                
+                                rivers.Add(riverPos);
+                            } else {
+                                canContinue = false;
+                                continue;
+                            }
+                        }
+                    }
+                    riverEnd = !canContinue;                    
+                }
+                
+            }
+
+        }
+    }
     void InitHeightMap(){
         System.Random rand = new System.Random(world.noiseSeed);
-        float[,] heights = Noise.GenerateNoiseMap(worldSize.x, worldSize.y, rand.Next(-10000, 10000), 100, 8);
+        float[,] heights = Noise.GenerateNoiseMap(worldSize.x, worldSize.y, rand.Next(-10000, 10000), world.totalNoiseScale, 8);
+        float[,] falloff = Noise.GenerateFalloffMap(worldSize.x, worldSize.y);
         for (int y = 0; y < worldSize.y; y++){
             for (int x = 0; x < worldSize.x; x++){
-                float height = Mathf.Lerp(0.5f, 0.7f, heights[x,y]);
-                WorldTile tile = tiles[x,y];
-                tile.topCrust.elevation = height;
-                if (height > 0.6){
-                    tile.topCrust.crustType = CrustTypes.CONTINENTAL;
+                float height = heights[x,y] - falloff[x,y];
+                if (height < 0f){
+                    height = 0f;
                 }
+                WorldTile tile = tiles[x,y];
+                if (height > seaLevel){
+                    tile.topCrust.crustType = CrustTypes.CONTINENTAL;
+                } else {
+                    height = Mathf.Lerp(seaLevel - oceanDepth, seaLevel, calcInverseFallof(Mathf.InverseLerp(seaLevel, 0f, height)));
+                }
+                    
+                tile.topCrust.elevation = height;//Mathf.Max(height, -oceanDepth + height * 0.15f);
+
             }
         }
-            
+
+        float calcInverseFallof(float value){
+            float a = 3f;
+            float b = .15f;
+            return 1f - Mathf.Pow(value, a) / (Mathf.Pow(value, a) + Mathf.Pow(b - b * value, a));
+        }       
     }
 
+    Vector2Int GetNewPos(Vector2Int pos, Vector2Int dir){
+        int dx = dir.x;
+        int dy = dir.y;
+
+        int moveX = pos.x + dx;
+        int moveY = pos.y + dy;
+
+        if (moveX > worldSize.x - 1){
+            moveX = 0;
+        }
+        if (moveX < 0){
+            moveX = worldSize.x - 1;
+        }
+        if (moveY > worldSize.y - 1){
+            moveY = 0;
+        }
+        if (moveY < 0){
+            moveY = worldSize.y - 1;
+        }    
+
+        return new Vector2Int(moveX, moveY);    
+    }
     void SimulateStep(){
         foreach (Plate plate in plates){
             plate.diagDir = new Vector2Int(0,0);
@@ -76,21 +169,9 @@ public class TectonicSimulation : MonoBehaviour{
                     dx += crust.plate.diagDir.x;
                     dy += crust.plate.diagDir.y;
 
-                    int moveX = x + dx;
-                    int moveY = y + dy;
+                    int moveX = GetNewPos(new Vector2Int(x,y), new Vector2Int(dx, dy)).x;
+                    int moveY = GetNewPos(new Vector2Int(x,y), new Vector2Int(dx, dy)).y;
 
-                    if (moveX > worldSize.x - 1){
-                        moveX = 0;
-                    }
-                    if (moveX < 0){
-                        moveX = worldSize.x - 1;
-                    }
-                    if (moveY > worldSize.y - 1){
-                        moveY = 0;
-                    }
-                    if (moveY < 0){
-                        moveY = worldSize.y - 1;
-                    }
                     if (!crust.moved){
                         crust.pos = new Vector2Int(moveX, moveY);
                         tile.crust.Remove(crust);   
@@ -106,8 +187,8 @@ public class TectonicSimulation : MonoBehaviour{
                 WorldTile tile = tiles[x,y];
                 foreach (CrustTile crust in tile.crust.ToArray()){
                     // Mid ocean ridge generation
-                    if (crust.age < 5){
-                        crust.elevation -= Random.Range(0.0075f, 0.01f);
+                    if (crust.age <= 3){
+                        crust.elevation = Mathf.Lerp(crust.elevation, seaLevel - oceanDepth, 0.7f);
                     }
                     // Allows crust to move next frame
                     crust.moved = false;
@@ -118,9 +199,10 @@ public class TectonicSimulation : MonoBehaviour{
                         plate = tile.lastPlate,
                         pos = new Vector2Int(x, y),
                         age = 0,
-                        elevation = Random.Range(0.55f, 0.565f)
+                        elevation = Random.Range(seaLevel - oceanDepth + 0.2f, seaLevel - oceanDepth + 0.25f)
                     };
                     tile.crust.Add(newCrust);
+                    newCrust.plate.tiles.Add(newCrust);
                     tile.topCrust = newCrust;
                 }
                 tile.topCrust = tile.crust[0];      
@@ -145,34 +227,64 @@ public class TectonicSimulation : MonoBehaviour{
                         if (crust != tile.topCrust){
                             // Oceanic subduction
                             if (crust.crustType == CrustTypes.OCEANIC){
-                                crust.lostElevation += Random.Range(0.025f, 0.01f);
+                                crust.lostElevation += Random.Range(0.1f, 0.2f);
 
                                 if (crust.lostElevation >= crust.elevation){
                                     // Island chain volcanoes
-                                    topCrust.elevation += Random.Range(0.0025f, 0.0125f);
-                                    tile.crust.Remove(crust);
+                                    topCrust.elevation += Random.Range(0.01f, 0.04f);
+                                    DeleteCrust(tile, crust);
                                 }                                
                             } else {
                                 // Continental Collision
-                                topCrust.elevation += Random.Range(0.0025f, 0.0125f);
-                                crust.lostElevation += Random.Range(0.05f, 0.02f);
+                                if (!crust.plate.velChanged){
+                                    crust.plate.velChanged = true;
+                                    crust.plate.dir = Vector2.Lerp(crust.plate.dir, topCrust.plate.dir, Random.Range(0.1f, 0.5f));
+                                }
+                                
+                                topCrust.elevation += Random.Range(0.005f, 0.025f);
+                                crust.lostElevation += Random.Range(0.1f, 0.02f);
 
                                 if (crust.lostElevation >= crust.elevation){
-                                    tile.crust.Remove(crust);
+                                    DeleteCrust(tile, crust);
                                 }
                             }
-
                         }
                     }
                 }     
             }
         } 
+        
+        foreach (Plate plate in plates.ToArray()){
+            foreach (Plate merger in plates.ToArray()){
+                if (plate.dir == merger.dir){
+                    foreach (CrustTile tile in plate.tiles.ToArray()){
+                        tile.plate = merger;
+                        merger.tiles.Add(tile);
+                            
+                        plate.tiles.Remove(tile);                            
+
+                    }
+                }
+            }
+            if (plate.tiles.Count < 1){
+                plates.Remove(plate);
+            }
+        }
         // Modifies plate velocity
         foreach (Plate plate in plates){
-            if (Random.Range(0f, 1f) <= 0.5f){
+            plate.velChanged = false;
+            if (Random.Range(0f, 1f) <= 0.25f){
                 plate.dir += new Vector2(Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f));
+                if (plate.dir.magnitude > 1f){
+                    plate.dir = plate.dir.normalized * 1f;
+                }
             }
         }           
+    }
+
+    void DeleteCrust(WorldTile tile, CrustTile crust){
+        tile.crust.Remove(crust);
+        crust.plate.tiles.Remove(crust);       
     }
 
     void UpdateVisuals(){
@@ -183,9 +295,10 @@ public class TectonicSimulation : MonoBehaviour{
                     
                     
                     mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, Color.blue, tile.topCrust.elevation + 0.4f));
-                    if (tile.topCrust.elevation > 0.6f){
+                    if (tile.topCrust.elevation > seaLevel){
                         mapTexture.SetPixelColor(x, y, Color.Lerp(Color.green, Color.yellow, (tile.topCrust.elevation - 0.6f)/(0.4f)));
                     }
+                    //mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, Color.white, tile.topCrust.elevation));
                     //mapTexture.SetPixelColor(x, y, Color.Lerp(Color.black, tile.topCrust.plate.color, tile.topCrust.elevation));
                     /*
                     if (tile.topCrust.crustType == CrustTypes.CONTINENTAL){
@@ -242,12 +355,15 @@ public class TectonicSimulation : MonoBehaviour{
                 tiles[x,y] = new WorldTile();
                 foreach (Plate plate in plates){
                     if (plate.origin == new Vector2Int(x,y)){
-                        tiles[x,y].crust.Add(new CrustTile(){
+                        CrustTile newCrust = new CrustTile(){
                         plate = plate,
                         pos = new Vector2Int(x, y)
-                        });
+                        };
+                        tiles[x,y].crust.Add(newCrust);
                         tiles[x,y].topCrust = tiles[x,y].crust[0];
+                        plate.tiles.Add(newCrust);
                     }
+                    
                 }
             }
         }
@@ -264,28 +380,17 @@ public class TectonicSimulation : MonoBehaviour{
                                 if (dx != 0 && dy != 0){
                                     continue;
                                 }
-                                int moveX = x + dx;
-                                int moveY = y + dy;
-
-                                if (moveX > worldSize.x - 1){
-                                    moveX = 0;
-                                }
-                                if (moveX < 0){
-                                    moveX = worldSize.x - 1;
-                                }
-                                if (moveY > worldSize.y - 1){
-                                    moveY = 0;
-                                }
-                                if (moveY < 0){
-                                    moveY = worldSize.y - 1;
-                                }   
+                                int moveX = GetNewPos(new Vector2Int(x,y), new Vector2Int(dx, dy)).x;
+                                int moveY = GetNewPos(new Vector2Int(x,y), new Vector2Int(dx, dy)).y;
 
                                 WorldTile tile2 = tiles[moveX,moveY];
                                 if (tile2.crust.Count < 1 && Random.Range(0f, 1f) < 0.2f){
-                                    tile2.crust.Add(new CrustTile(){
+                                    CrustTile newCrust = new CrustTile(){
                                     plate = tile.topCrust.plate,
                                     pos = new Vector2Int(x, y)
-                                    });
+                                    };
+                                    tile2.crust.Add(newCrust);
+                                    tile.topCrust.plate.tiles.Add(newCrust);
                                     moved[moveX,moveY] = true;  
                                     freeTiles--;
                                     tile2.topCrust = tile2.crust[0]; 
@@ -303,50 +408,6 @@ public class TectonicSimulation : MonoBehaviour{
                 }  
             }            
         }
-
-            
-        // Plate selection
-        /*
-        for (int x = 0; x < worldSize.x; x++){
-            for (int y = 0; y < worldSize.y; y++){
-                tiles[x,y] = new WorldTile();
-                float closestDist = Mathf.Infinity;
-                Vector2Int nearestPoint = new Vector2Int();
-
-                for (int dx = -1; dx < 2; dx++){
-                    for (int dy = -1; dy < 2; dy++){
-
-                        int gridX = x / ppcX;
-                        int gridY = y / ppcY;
-
-                        int tx = gridX + dx;
-                        int ty = gridY + dy;
-
-                        if (tx < 0 || ty < 0 || tx >= gridSizeX || ty >= gridSizeY){
-                            continue;
-                        }
-
-                        float dist = Vector2Int.Distance(new Vector2Int(x, y), points[tx, ty]);
-
-                        if (dist < closestDist){
-                            closestDist = dist;
-                            nearestPoint = points[tx, ty];
-                        }
-                    }
-                }
-                foreach (Plate plate in plates){
-                    if (plate.origin == nearestPoint){
-                        tiles[x,y].crust.Add(new CrustTile(){
-                            plate = plate,
-                            pos = new Vector2Int(x, y)
-                        });
-                    }
-                }
-                tiles[x,y].topCrust = tiles[x,y].crust[0];
-                mapTexture.SetPixelColor(x, y, tiles[x,y].crust[0].plate.color);
-            }
-        }
-        */
     }
 
     public enum CrustTypes{
@@ -355,7 +416,6 @@ public class TectonicSimulation : MonoBehaviour{
     }
 
     class WorldTile{
-        public float elevation = 0.5f;
         public List<CrustTile> crust = new List<CrustTile>();
         public CrustTile topCrust;
         public Plate lastPlate;
@@ -372,11 +432,13 @@ public class TectonicSimulation : MonoBehaviour{
     }
 
     class Plate{
+        public bool velChanged = false;
         public Vector2Int origin;
         public Color color;
         public Vector2 dir;
         public Vector2Int diagDir;
         public Vector2Int moveStep;
+        public List<CrustTile> tiles = new List<CrustTile>();
         public int density;
     }
 }
