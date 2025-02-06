@@ -33,7 +33,7 @@ public class TectonicSimulation : MonoBehaviour{
     void Update(){
         years++;
         print((years + 1) + " Million Years");
-        SimulateStep();
+        //SimulateStep();
         HydraulicErosion();
         UpdateVisuals();
     }
@@ -64,6 +64,9 @@ public class TectonicSimulation : MonoBehaviour{
                     bool canContinue = false;
                     for (int dx = -1; dx < 2; dx++){
                         for (int dy = -1; dy < 2; dy++){
+                            if (dx != 0 && dy != 0){
+                                continue;
+                            }
                             Vector2Int newPos = GetNewPos(new Vector2Int(riverPos.x, riverPos.y), new Vector2Int(dx, dy));
                             int x = newPos.x;
                             int y = newPos.y;
@@ -73,7 +76,7 @@ public class TectonicSimulation : MonoBehaviour{
                                 canContinue = true;
                                 riverPos = newPos;
                                 if (waterFlow > 0.01f){
-                                    tile.topCrust.elevation += 0.1f;
+                                    tile.topCrust.elevation = Mathf.Lerp(tile.topCrust.elevation, seaLevel + 0.1f, waterFlow/1f);
                                     //target.topCrust.elevation += waterFlow/100f;
                                 }
                                 
@@ -188,7 +191,7 @@ public class TectonicSimulation : MonoBehaviour{
                 foreach (CrustTile crust in tile.crust.ToArray()){
                     // Mid ocean ridge generation
                     if (crust.age <= 3){
-                        crust.elevation = Mathf.Lerp(crust.elevation, seaLevel - oceanDepth, 0.7f);
+                        crust.elevation = Mathf.Lerp(crust.elevation, seaLevel - oceanDepth, 0.1f);
                     }
                     // Allows crust to move next frame
                     crust.moved = false;
@@ -230,8 +233,13 @@ public class TectonicSimulation : MonoBehaviour{
                                 crust.lostElevation += Random.Range(0.1f, 0.2f);
 
                                 if (crust.lostElevation >= crust.elevation){
-                                    // Island chain volcanoes
-                                    topCrust.elevation += Random.Range(0.01f, 0.04f);
+                                    // Volcanoes
+                                    if (topCrust.crustType == CrustTypes.OCEANIC){
+                                        topCrust.elevation += Random.Range(0.01f, 0.04f);
+                                    } else {
+                                        topCrust.elevation += Random.Range(0.005f, 0.01f);
+                                    }
+                                    
                                     DeleteCrust(tile, crust);
                                 }                                
                             } else {

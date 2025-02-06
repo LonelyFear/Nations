@@ -78,9 +78,9 @@ public class GenerateWorld : MonoBehaviour
     float[] temps = {0.874f, 0.765f, 0.594f, 0.439f, 0.366f, 0.124f};
     float[] humids = {0.941f, 0.778f, 0.507f, 0.236f, 0.073f, 0.014f, 0.002f};
 
-    float[,] tempmap = new float[1000,1000];
-    float[,] humidmap = new float[1000,1000];
-    float[,] heightmap = new float[1000,1000];
+    float[,] tempmap = new float[100,100];
+    float[,] humidmap = new float[100,100];
+    float[,] heightmap = new float[100,100];
 
     float landTiles = 0;
     public Tile[,] tiles;
@@ -94,7 +94,7 @@ public class GenerateWorld : MonoBehaviour
         // /loadedBiomeAggregates = ;
 
         loadedBiomeAggregates = JsonUtility.FromJson<BiomeWrapper>(File.ReadAllText(biomePath)).biomes.ToArray();
-        print(loadedBiomeAggregates);
+        print(loadedBiomeAggregates[6].id);
         if (randomizeSeed){
             noiseSeed = UnityEngine.Random.Range(0, 99999);
         }
@@ -111,7 +111,6 @@ public class GenerateWorld : MonoBehaviour
 
         // Sends worldgen finished signal
         GetComponent<WorldgenEvents>().worldgenFinish();
-        print(JsonUtility.ToJson(new Biome()));
     }
     void fitYToTexture(){
         float texScale = preset.noiseTexture.Size().x / worldSize.x;
@@ -125,15 +124,19 @@ public class GenerateWorld : MonoBehaviour
     }
 
     float[,] getTempMap(int width, int height, float scale){
-        float[,] tempMap = Noise.GenerateNoiseMap(width, height, noiseSeed + 5382, scale, 8);
-        float[,] falloff = Noise.GenerateFalloffMap(width, height, 2.0f, false);
+        // TODO: Fix generation for realism and stuff ye
+        
+        float[,] tempmap = Noise.GenerateNoiseMap(width, height, noiseSeed + 5382, scale, 8);
+        float[,] falloff = Noise.GenerateFalloffMap(width, height, 3.3f, false);
         for (int y = 0; y < height; y++){
             for (int x = 0; x < width; x++){
+                float equatorPos = worldSize.y / 2;
+                float tempValue = 1f - Mathf.Abs(equatorPos - y) / equatorPos;
+                tempValue = Mathf.Clamp(tempValue + tempOffset, 0f, 1f);
 
-                tempMap[x,y] = Mathf.Clamp01(tempMap[x,y] - falloff[x,y]);                
+                tempmap[x,y] *= tempValue;                
             }
-        }
-
+        }   
         return tempmap;
     }
 
@@ -143,6 +146,7 @@ public class GenerateWorld : MonoBehaviour
 
         for (int y = 0; y < height; y++){
             for (int x = 0; x < width; x++){
+
                 heightmap[x,y] = Mathf.Clamp01(heightmap[x,y] - falloffmap[x,y]);
             }
         }
@@ -159,6 +163,8 @@ public class GenerateWorld : MonoBehaviour
         heightmap = getHeightMap(worldSize.x, worldSize.y, totalNoiseScale);
         tempmap = getTempMap(worldSize.x, worldSize.y, 20);
         humidmap = getHumidMap(worldSize.x, worldSize.y, 5);
+
+        print(tempmap[50,0]);
             
         // Worldsize works like lists, so 0 is the first index and the last index is worldsize - 1
         for (int y = 0; y < worldSize.y; y++){
@@ -171,20 +177,17 @@ public class GenerateWorld : MonoBehaviour
                 Tile newTile = new Tile();
 
                 biomes[x,y] = SetBiome(x, y);
-                if (x == worldSize.x - 1&& y == worldSize.y - 1){
-                    print(biomes[x,y]);
-                }
                 tiles[x,y] = newTile;
             }
         }
+
         FinalChecks();
 
         print("Land Tiles: " + landTiles);
         print("Total Tiles: " + (worldSize.x * worldSize.y));
         print("Land %: " + Mathf.RoundToInt(landTiles / (worldSize.x * worldSize.y) * 100) + "%");
 
-        GetComponent<TileManager>().tiles = tiles;
-        
+        GetComponent<TileManager>().tiles = tiles;        
     }
 
     void FinalChecks(){
@@ -206,8 +209,8 @@ public class GenerateWorld : MonoBehaviour
         for (int y = 0; y < worldSize.y; y++){
             for (int x = 0; x < worldSize.x; x++){
                 Tile tile = tiles[x, y];
-                for (int ox = -1; ox <= 1; ox++){
-                    for (int oy = -1; oy <= 1; oy++){
+                for (int ox = -1; ox < 2; ox++){
+                    for (int oy = -1; oy < 2; oy++){
                         if (getTile(ox + x, oy + y) != null && getTile(ox + x, oy + y).biome.terrainType == BiomeTerrainType.WATER){
                             tile.coastal = true;
                             break;
@@ -222,7 +225,7 @@ public class GenerateWorld : MonoBehaviour
         float altitude = heightmap[x,y];
         float seaLevel = preset.oceanThreshold;
 
-        string biome;
+        string biome = "rock";
 
         // If we are below the ocean threshold
         if (altitude <= seaLevel){
@@ -389,49 +392,48 @@ public class GenerateWorld : MonoBehaviour
         }
 
         return biome;
-
-        TempTypes getTempType(int x, int y){
-            float temp = tempmap[x,y];
-            if (temp < temps[5]){
-                return TempTypes.POLAR;
-            } else if (temp >= temps[5] && temp < temps[4]){
-                return TempTypes.ALPINE;
-            } else if (temp >= temps[4] && temp < temps[3]){
-                return TempTypes.BOREAL;
-            } else if (temp >= temps[3] && temp < temps[2]){
-                return TempTypes.COOL;
-            } else if (temp >= temps[2] && temp < temps[1]){
-                return TempTypes.WARM;
-            } else if (temp >= temps[1] && temp < temps[0]){
-                return TempTypes.SUBTROPICAL;
-            } else if (temp >= temps[0]){
-                return TempTypes.TROPICAL;
-            } else {
-                return TempTypes.INVALID;
-            }
+    }
+    TempTypes getTempType(int x, int y){
+        float temp = tempmap[x,y];
+        if (temp < temps[5]){
+            return TempTypes.POLAR;
+        } else if (temp >= temps[5] && temp < temps[4]){
+            return TempTypes.ALPINE;
+        } else if (temp >= temps[4] && temp < temps[3]){
+            return TempTypes.BOREAL;
+        } else if (temp >= temps[3] && temp < temps[2]){
+            return TempTypes.COOL;
+        } else if (temp >= temps[2] && temp < temps[1]){
+            return TempTypes.WARM;
+        } else if (temp >= temps[1] && temp < temps[0]){
+            return TempTypes.SUBTROPICAL;
+        } else if (temp >= temps[0]){
+            return TempTypes.TROPICAL;
+        } else {
+            return TempTypes.INVALID;
         }
+    }
 
-        HumidTypes getHumidType(int x, int y){
-            float humid = humidmap[x,y];
-            if ( humid < humids[6]){
-                return  HumidTypes.SUPER_ARID;
-            } else if (humid >= humids[6] && humid < humids[5]){
-                return HumidTypes.PER_ARID;
-            } else if (humid >= humids[5] && humid < humids[4]){
-                return HumidTypes.ARID;
-            } else if (humid >= humids[4] && humid < humids[3]){
-                return HumidTypes.SEMI_ARID;
-            } else if (humid >= humids[3] && humid < humids[2]){
-                return HumidTypes.SUB_HUMID;
-            } else if (humid >= humids[2] && humid < humids[1]){
-                return HumidTypes.HUMID;
-            } else if (humid >= humids[1] && humid < humids[0]){
-                return HumidTypes.PER_HUMID; 
-            } else if (humid >= humids[0]){
-                return HumidTypes.SUPER_HUMID;
-            } else {
-                return HumidTypes.INVALID;
-            }
+    HumidTypes getHumidType(int x, int y){
+        float humid = humidmap[x,y];
+        if ( humid < humids[6]){
+            return  HumidTypes.SUPER_ARID;
+        } else if (humid >= humids[6] && humid < humids[5]){
+            return HumidTypes.PER_ARID;
+        } else if (humid >= humids[5] && humid < humids[4]){
+            return HumidTypes.ARID;
+        } else if (humid >= humids[4] && humid < humids[3]){
+            return HumidTypes.SEMI_ARID;
+        } else if (humid >= humids[3] && humid < humids[2]){
+            return HumidTypes.SUB_HUMID;
+        } else if (humid >= humids[2] && humid < humids[1]){
+            return HumidTypes.HUMID;
+        } else if (humid >= humids[1] && humid < humids[0]){
+            return HumidTypes.PER_HUMID; 
+        } else if (humid >= humids[0]){
+            return HumidTypes.SUPER_HUMID;
+        } else {
+            return HumidTypes.INVALID;
         }
     }
 

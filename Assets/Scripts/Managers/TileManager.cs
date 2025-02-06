@@ -6,6 +6,7 @@ using UnityEngine.EventSystems;
 using System.Linq;
 using Unity.Collections;
 using UnityEngine.InputSystem.Interactions;
+using Unity.VisualScripting;
 
 public class TileManager : MonoBehaviour
 {
@@ -75,7 +76,7 @@ public class TileManager : MonoBehaviour
                 initPopulation(tile, popsToCreate);
             }
             // Sets the map colors
-            updateAllColors(true);                
+            updateAllColors();                
         }
 
     }
@@ -276,7 +277,7 @@ public class TileManager : MonoBehaviour
 
     public Tile getTile(int x, int y){
         // makes sure the key we are getting exists
-        if (x < worldSize.x - 1 && y < worldSize.y - 1 && x >= 0 && y >= 0){
+        if (x < worldSize.x && y < worldSize.y && x >= 0 && y >= 0){
             return tiles[x,y];
         }
         return null;
@@ -295,24 +296,27 @@ public class TileManager : MonoBehaviour
 
     public MapModes mapMode = MapModes.POLITICAL;
 
-    public void updateAllColors(bool updateOcean = false){
-        // LAGGY
+    public void updateAllColors(){
+        Color32[] colors = map.texture.GetPixels32();
+        int index = 0;
         for (int y = 0; y < worldSize.y; y++){
             for (int x = 0; x < worldSize.x; x++){
-                Tile tile = getTile(x, y);
-                if (tile != null){
-                    if (tile.biome.terrainType == BiomeTerrainType.WATER && !updateOcean){
-                        continue;
-                    }
-                    updateColor(x, y);
-                }
+                index = (y * worldSize.x) + x;
+                Color newColor = getColor(x, y);
+                //print(newColor);
+                colors[index] = newColor;
             }
         }
+        map.texture.SetPixels32(colors);
+        map.texture.Apply();
     }
 
 
     // COLOR
     public void updateColor(int x, int y){
+        map.SetPixelColor(x, y, getColor(x, y));
+    }
+    public Color getColor(int x, int y){
         // Gets the final color
         Color finalColor = new Color();
         // Gets the tile we want to paint
@@ -395,7 +399,6 @@ public class TileManager : MonoBehaviour
 
         }
 
-        
         void ColorTerrain(){
             // If the tile isnt owned, just sets the color to the color of the terrain
             finalColor = tile.terrainColor;   
@@ -451,9 +454,8 @@ public class TileManager : MonoBehaviour
 
 
         }
-        
-        // Finally sets the color on the tilemap
-        map.SetPixelColor(x, y, finalColor);
+        // Finally gets our color
+        return finalColor;
     }
 
     void ChangeMapMode(MapModes newMode){
