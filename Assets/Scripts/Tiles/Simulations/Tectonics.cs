@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
 using Unity.VisualScripting;
+using UnityEditor.Rendering;
+using UnityEditor.SceneManagement;
 using UnityEditor.ShaderGraph.Internal;
 using UnityEngine;
+using UnityEngine.Animations;
 using UnityEngine.UIElements;
 using Random = UnityEngine.Random;
 
@@ -18,6 +21,8 @@ public class Tectonics : MonoBehaviour{
     List<Plate> plates;
     WorldTile[,] tiles;
 
+    int plateTarget;
+
     public void InitTectonicSimulation(GenerateWorld world, int width, int height, int platesX, int platesY, float seadepth = 0.4f, float landlevel = 0.6f){
         this.world = world;
         oceanDepth = seadepth;
@@ -25,7 +30,7 @@ public class Tectonics : MonoBehaviour{
         worldSize = new Vector2Int(width,height);
         plates = new List<Plate>();
         tiles = new WorldTile[width,height];
-
+        plateTarget = platesX * platesY;
         CreatePlates(platesX, platesY);
         InitHeightMap();
         Debug.Log("Tectonics Initialized");
@@ -58,6 +63,7 @@ public class Tectonics : MonoBehaviour{
         if (!GetComponent<GenerateWorld>().enabled){
             SimulateStep();
             HydraulicErosion();    
+            BreakUpPlates();
             if (mapTexture){
                 DrawMap();
             }            
@@ -166,7 +172,7 @@ public class Tectonics : MonoBehaviour{
 
             if (waterFlow > 0.01f){
                 WorldTile tile = tiles[pos.x, pos.y];
-                tile.topCrust.elevation = Mathf.Lerp(tile.topCrust.elevation, seaLevel + 0.1f, waterFlow/10f);
+                tile.topCrust.elevation = Mathf.Lerp(tile.topCrust.elevation, seaLevel + 0.1f, waterFlow/20f);
             }
         }
     }
@@ -322,7 +328,11 @@ public class Tectonics : MonoBehaviour{
                                 // Continental Collision
                                 if (!crust.plate.velChanged){
                                     crust.plate.velChanged = true;
-                                    crust.plate.dir = Vector2.Lerp(crust.plate.dir, topCrust.plate.dir, Random.Range(0.1f, 0.5f));
+                                    crust.plate.dir = Vector2.Lerp(crust.plate.dir, topCrust.plate.dir, 0.1f);
+                                    
+                                    if (Vector2.Distance(crust.plate.dir, topCrust.plate.dir) < 0.03f){
+                                        crust.plate.dir = topCrust.plate.dir;
+                                    }
                                 }
                                 
                                 topCrust.elevation += Random.Range(0.005f, 0.025f);
@@ -342,11 +352,7 @@ public class Tectonics : MonoBehaviour{
             foreach (Plate merger in plates.ToArray()){
                 if (plate.dir == merger.dir){
                     foreach (CrustTile tile in plate.tiles.ToArray()){
-                        tile.plate = merger;
-                        merger.tiles.Add(tile);
-                            
-                        plate.tiles.Remove(tile);                            
-
+                        merger.AddCrust(tile);                        
                     }
                 }
             }
@@ -366,6 +372,92 @@ public class Tectonics : MonoBehaviour{
         }           
     }
 
+    void BreakUpPlates(){
+        Debug.Log("Plates: " + plates.Count);
+        if (plates.Count < plateTarget + Random.Range(-1,3)){
+            // Gets our plates
+            // Gets average plate size
+            float averagePlateSize = 0;
+            foreach (Plate plate in plates){
+                averagePlateSize += plate.tiles.Count;
+            }
+            averagePlateSize = averagePlateSize / plates.Count;
+            Debug.Log("Average plate size: " + averagePlateSize);
+
+            // If our plate is larger than the average plate size we want to split it
+            foreach (Plate plate in plates.ToArray()){
+                if (plate.tiles.Count >= averagePlateSize && Random.Range(0f, 1f) < 0.1f){
+                    // Split plate in half
+                    
+                    List<CrustTile> splitTiles = new List<CrustTile>();
+                    CrustTile tileA = plate.tiles[Random.Range(0, plate.tiles.Count - 1)];
+                    CrustTile tileB = plate.tiles[Random.Range(0, plate.tiles.Count - 1)];
+                    // Picks starting point
+                    
+                    int iterations = 0;
+                    while (splitTiles.Count <= plate.tiles.Count / 2 && iterations < plate.tiles.Count){
+                        // Iterations to prevent infinite loops in case I did smth wrong
+                        iterations++;
+                        // The list of tiles we are going to add each iteration
+                        List<CrustTile> newSplit = new List<CrustTile>();
+
+                        foreach (CrustTile t in splitTiles){
+                            newSplit.Add(t);
+                        }
+
+                        foreach (CrustTile tile in plate.tiles){
+                            // If this tile is one that we are splitting
+                            if (splitTiles.Contains(tile)){
+                                int x = tile.pos.x;
+                                int y = tile.pos.y;
+                                // Goes through its neigbors
+                                for (int dx = -1; dx < 2; dx++){
+                                    for (int dy = -1; dy < 2; dy++){
+                                        // If it is a diagonal neighbor throw it out
+                                        if (dx != 0 && dy != 0){
+                                            continue;
+                                        }
+                                        // Gets the world position of its neighbor
+                                        int moveX = GetNewPos(new Vector2Int(x,y), new Vector2Int(dx, dy)).x;
+                                        int moveY = GetNewPos(new Vector2Int(x,y), new Vector2Int(dx, dy)).y; 
+
+                                        // Gets the world tile
+                                        WorldTile worldTile = tiles[moveX, moveY];
+                                        // Goes through the crust of the world tile
+                                        foreach (CrustTile crust in worldTile.crust){
+                                            // If the crust section is of our plate
+                                            if (crust.plate == plate && !splitTiles.Contains(crust) && Random.Range(0f, 1f) < 0.2f){
+                                                // Adds it to the list that will be split next iteration
+                                                newSplit.Add(crust);
+                                            }
+                                        }
+                                    }                               
+                                }                                
+                            }
+                        }
+                        // Updates our split tile list
+                        splitTiles = newSplit;
+                    }
+                    
+                    print(splitTiles.Count);
+                    // Makes our new plate
+                    Plate newPlate = new Plate(){
+                        color = new Color(Random.Range(0f, 1f), Random.Range(0f, 1f), Random.Range(0f, 1f)),
+                        dir = -plate.dir
+                    };
+
+                    // and finally gives it the tiles
+                    foreach (CrustTile splitCrust in splitTiles){
+                        newPlate.AddCrust(splitCrust);
+                    }
+
+                    // And adds the new plate to the plates list
+                    plates.Add(newPlate);
+                }
+            }
+        }
+    }
+
     void DeleteCrust(WorldTile tile, CrustTile crust){
         tile.crust.Remove(crust);
         crust.plate.tiles.Remove(crust);       
@@ -383,6 +475,7 @@ public class Tectonics : MonoBehaviour{
                 if (tile.topCrust.elevation > seaLevel){
                     newColor = Color.Lerp(Color.green, Color.yellow, (tile.topCrust.elevation - 0.6f)/(0.4f));
                 }
+                //newColor = tile.topCrust.plate.color;
                 /*
                 // River visualization
                 if (rivers.ContainsKey(new Vector2Int(x,y))){
@@ -519,10 +612,8 @@ public class Tectonics : MonoBehaviour{
         public List<CrustTile> tiles = new List<CrustTile>();
         public int density;
 
-        void AddCrust(CrustTile tile){
-            if (tile.plate != null){
-                tile.plate.tiles.Remove(tile);
-            }
+        public void AddCrust(CrustTile tile){
+            tile.plate.tiles.Remove(tile);
             tiles.Add(tile);
             tile.plate = this;
         }

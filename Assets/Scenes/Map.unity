@@ -606,7 +606,7 @@ MonoBehaviour:
   randomizeSeed: 0
   totalNoiseScale: 120
   biomePath: Assets/Biomes/Biomes.json
-  tectonicSteps: 0
+  tectonicSteps: 200
 --- !u!4 &184318060
 Transform:
   m_ObjectHideFlags: 0

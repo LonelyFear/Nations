@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: RandomWorldgen
   m_EditorClassIdentifier: 
   noiseTexture: {fileID: 0}
-  oceanThreshold: 0.5
+  oceanThreshold: 0.55
