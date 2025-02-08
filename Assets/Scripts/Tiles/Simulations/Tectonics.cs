@@ -1,97 +1,173 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.ExceptionServices;
 using Unity.Collections;
 using Unity.VisualScripting;
-using UnityEditor.Experimental.GraphView;
+using UnityEditor.ShaderGraph.Internal;
 using UnityEngine;
-using UnityEngine.Experimental.AI;
-using UnityEngine.Rendering.Universal;
+using UnityEngine.UIElements;
 using Random = UnityEngine.Random;
 
-public class TectonicSimulation : MonoBehaviour{
+public class Tectonics : MonoBehaviour{
     public GenerateWorld world;
     public MapTextureManager mapTexture;
-    public float oceanDepth = 0.2f;
-    public float seaLevel = 0.6f;
-
+    float oceanDepth = 0.2f;
+    float seaLevel = 0.6f;
 
     Vector2Int worldSize;
-    List<Plate> plates = new List<Plate>();
+    List<Plate> plates;
     WorldTile[,] tiles;
-    int years = 0;
 
-    void Start(){
-        worldSize = world.worldSize;
+    public void InitTectonicSimulation(GenerateWorld world, int width, int height, int platesX, int platesY, float seadepth = 0.4f, float landlevel = 0.6f){
+        this.world = world;
+        oceanDepth = seadepth;
+        seaLevel = landlevel;
+        worldSize = new Vector2Int(width,height);
+        plates = new List<Plate>();
+        tiles = new WorldTile[width,height];
 
-        CreatePlates(4, 4);
+        CreatePlates(platesX, platesY);
         InitHeightMap();
+        Debug.Log("Tectonics Initialized");
+    }
+    public float[,] RunTectonicSimulation(int steps){
+        int step = 0;
+        while (step < steps){
+            step++;
+            Debug.Log("Step " + step);
+            SimulateStep();
+            HydraulicErosion();            
+        }
+        if (mapTexture){
+            DrawMap();
+        }
         
+        Debug.Log("Tectonic simulation completed");
+        return GetHeightMap();
     }
-
+    
+    void Start(){
+        if (!GetComponent<GenerateWorld>().enabled){
+            worldSize = GetComponent<GenerateWorld>().worldSize;
+            InitTectonicSimulation(GetComponent<GenerateWorld>(), worldSize.x, worldSize.y, 4, 4);            
+        } else {
+            enabled = false;
+        }
+    }
     void Update(){
-        years++;
-        print((years + 1) + " Million Years");
-        //SimulateStep();
-        HydraulicErosion();
-        UpdateVisuals();
-    }
+        if (!GetComponent<GenerateWorld>().enabled){
+            SimulateStep();
+            HydraulicErosion();    
+            if (mapTexture){
+                DrawMap();
+            }            
+        } else {
+            enabled = false;
+        }
 
+    }
+    
+    float[,] GetHeightMap(){
+        float[,] heightmap = new float[worldSize.x, worldSize.y];
+        for (int y = 0; y < worldSize.y; y++){
+            for (int x = 0; x < worldSize.x; x++){
+                WorldTile tile = tiles[x,y];
+                heightmap[x,y] = tile.topCrust.elevation;
+            }
+        }
+        return heightmap;
+    }
+    
     void HydraulicErosion(){
         // Hydraulic erosion
-        List<Vector2Int> rivers = new List<Vector2Int>();
-        Vector2Int[] samplePoints = new Vector2Int[25];
+
+        Dictionary<Vector2Int, float> currentRivers = new Dictionary<Vector2Int, float>();
+        List<Vector2Int> samplePoints = new List<Vector2Int>();
+
         int attempts = 0;
-        for (int i = 0; i < samplePoints.Length; i++){
+
+        for (int i = 0; i < 1000; i++){
             Vector2Int samplePos = new Vector2Int(Random.Range(0, worldSize.x - 1), Random.Range(0, worldSize.y - 1));
-            while (!samplePoints.Contains(samplePos) && attempts < 50){
+            while (samplePoints.Contains(samplePos) && attempts < 500){
                 attempts++;
                 samplePos = new Vector2Int(Random.Range(0, worldSize.x - 1), Random.Range(0, worldSize.y - 1));
             }
-            samplePoints[i] = samplePos;
+            if (!samplePoints.Contains(samplePos)){
+                samplePoints.Add(samplePos);
+            }
+            
         }
+
         // Hydraulic
         foreach (Vector2Int point in samplePoints){
+            List<Vector2Int> thisRiver = new List<Vector2Int>();
             WorldTile tile = tiles[point.x, point.y];
+
             if (tile.topCrust.elevation > 0.7f){
-                rivers.Add(point);
+                //currentRivers.Add(point, 0);
+                thisRiver.Add(point);
+
                 Vector2Int riverPos = point;
                 bool riverEnd = false;
                 int steps = 0;
-                while (!riverEnd || steps < 50){
+
+                while (riverEnd == false){
                     steps++;
-                    bool canContinue = false;
+                    if (steps > 200){
+                        riverEnd = true;
+                        continue;
+                    }
+
+                    WorldTile nextTile = null;
+                    Vector2Int nextPos = point;
+                    float lowestHeight = float.MaxValue;
+                    
                     for (int dx = -1; dx < 2; dx++){
                         for (int dy = -1; dy < 2; dy++){
                             if (dx != 0 && dy != 0){
                                 continue;
                             }
+                            
                             Vector2Int newPos = GetNewPos(new Vector2Int(riverPos.x, riverPos.y), new Vector2Int(dx, dy));
                             int x = newPos.x;
-                            int y = newPos.y;
+                            int y = newPos.y;     
+
                             WorldTile target = tiles[x, y];
-                            if (target.topCrust.elevation < tile.topCrust.elevation && !canContinue && target.topCrust.elevation > seaLevel && !rivers.Contains(newPos) && Random.Range(0f, 1f) < 0.25f){
-                                float waterFlow = tile.topCrust.elevation - target.topCrust.elevation;
-                                canContinue = true;
-                                riverPos = newPos;
-                                if (waterFlow > 0.01f){
-                                    tile.topCrust.elevation = Mathf.Lerp(tile.topCrust.elevation, seaLevel + 0.1f, waterFlow/1f);
-                                    //target.topCrust.elevation += waterFlow/100f;
-                                }
-                                
-                                rivers.Add(riverPos);
-                            } else {
-                                canContinue = false;
-                                continue;
+                            if (target.topCrust.elevation < lowestHeight && !thisRiver.Contains(newPos)){
+                                lowestHeight = target.topCrust.elevation;
+                                nextTile = target;
+                                nextPos = newPos;
                             }
                         }
                     }
-                    riverEnd = !canContinue;                    
-                }
-                
-            }
 
+                    if (nextTile != null && lowestHeight < tile.topCrust.elevation){
+                        float waterFlow = tile.topCrust.elevation - nextTile.topCrust.elevation;
+                        currentRivers[riverPos] = waterFlow;
+                        riverPos = nextPos;
+
+                        if (nextTile.topCrust.elevation < seaLevel || currentRivers.ContainsKey(riverPos)){
+                            riverEnd = true;
+                        } else {
+                            
+
+                            currentRivers.Add(riverPos, 0);
+                            thisRiver.Add(riverPos);
+                        }
+                    } else {
+                        riverEnd = true;
+                    }                                               
+                }
+            }      
+        }
+        foreach (var entry in currentRivers){
+            float waterFlow = entry.Value;
+            Vector2Int pos = entry.Key;
+
+            if (waterFlow > 0.01f){
+                WorldTile tile = tiles[pos.x, pos.y];
+                tile.topCrust.elevation = Mathf.Lerp(tile.topCrust.elevation, seaLevel + 0.1f, waterFlow/10f);
+            }
         }
     }
     void InitHeightMap(){
@@ -250,7 +326,7 @@ public class TectonicSimulation : MonoBehaviour{
                                 }
                                 
                                 topCrust.elevation += Random.Range(0.005f, 0.025f);
-                                crust.lostElevation += Random.Range(0.1f, 0.02f);
+                                crust.lostElevation += Random.Range(0.01f, 0.02f);
 
                                 if (crust.lostElevation >= crust.elevation){
                                     DeleteCrust(tile, crust);
@@ -295,9 +371,9 @@ public class TectonicSimulation : MonoBehaviour{
         crust.plate.tiles.Remove(crust);       
     }
 
-    void UpdateVisuals(){
+    void DrawMap(){
         Color32[] colors = mapTexture.texture.GetPixels32();
-        int index = 0;
+        int index;
         for (int y = 0; y < worldSize.y; y++){
             for (int x = 0; x < worldSize.x; x++){
                 index = (y * worldSize.x) + x;
@@ -307,6 +383,12 @@ public class TectonicSimulation : MonoBehaviour{
                 if (tile.topCrust.elevation > seaLevel){
                     newColor = Color.Lerp(Color.green, Color.yellow, (tile.topCrust.elevation - 0.6f)/(0.4f));
                 }
+                /*
+                // River visualization
+                if (rivers.ContainsKey(new Vector2Int(x,y))){
+                    newColor = Color.Lerp(Color.cyan, Color.white, rivers[new Vector2Int(x,y)] * 10);
+                }
+                */
                 colors[index] = newColor;
             }
         }
@@ -436,5 +518,13 @@ public class TectonicSimulation : MonoBehaviour{
         public Vector2Int moveStep;
         public List<CrustTile> tiles = new List<CrustTile>();
         public int density;
+
+        void AddCrust(CrustTile tile){
+            if (tile.plate != null){
+                tile.plate.tiles.Remove(tile);
+            }
+            tiles.Add(tile);
+            tile.plate = this;
+        }
     }
 }

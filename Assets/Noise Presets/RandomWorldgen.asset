@@ -14,5 +14,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   noiseTexture: {fileID: 0}
   oceanThreshold: 0.5
-  mountainTreshold: 0.72
-  hillTreshold: 0.62

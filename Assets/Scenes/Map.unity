@@ -602,19 +602,11 @@ MonoBehaviour:
   worldSize: {x: 300, y: 150}
   preset: {fileID: 11400000, guid: 071ae9a8987e9114bae2cb060e5182f6, type: 2}
   fixToTexture: 1
-  noiseSeed: 2951
+  noiseSeed: 4532
   randomizeSeed: 0
   totalNoiseScale: 120
-  persistence: 0
-  lacunarity: 0
-  weights:
-  - 0.6
-  - 0.2
-  - 0.15
-  - 0.05
   biomePath: Assets/Biomes/Biomes.json
-  moistureOffset: 0
-  tempOffset: 0
+  tectonicSteps: 0
 --- !u!4 &184318060
 Transform:
   m_ObjectHideFlags: 0
@@ -671,15 +663,13 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 184318058}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5a39c2bb36ec09d49872f9813a9c5d08, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   world: {fileID: 184318059}
   mapTexture: {fileID: 1836568594}
-  oceanDepth: 0.4
-  seaLevel: 0.6
 --- !u!1 &253897841
 GameObject:
   m_ObjectHideFlags: 0

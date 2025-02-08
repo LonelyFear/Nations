@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Unity.Mathematics;
 using Unity.VisualScripting;
+using UnityEditor.UI;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -51,10 +52,6 @@ public class GenerateWorld : MonoBehaviour
     public bool randomizeSeed = false;
     [Tooltip("The noise scale for RANDOM NOISE | Higher scale = Smoother")]
     public int totalNoiseScale;
-    public float persistence;
-    public float lacunarity;
-    [Tooltip("Weights the different noise maps")]
-    public float[] weights = new float[4];
 
     [Header("Terrain Settings")]
     /*
@@ -66,11 +63,7 @@ public class GenerateWorld : MonoBehaviour
     [SerializeField] Color dryColor;
     */
     [SerializeField] String biomePath;
-    [Range(-0.5f, 0.5f)]
-    [SerializeField]  float moistureOffset;
-    [Range(-0.5f, 0.5f)]
-    [SerializeField]  float tempOffset;
-    [Range(0f, 1f)]
+    [SerializeField]  int tectonicSteps = 100;
 
     // Constrains & Local values
     Biome[] loadedBiomeAggregates;
@@ -127,14 +120,35 @@ public class GenerateWorld : MonoBehaviour
         // TODO: Fix generation for realism and stuff ye
         
         float[,] tempmap = Noise.GenerateNoiseMap(width, height, noiseSeed + 5382, scale, 8);
-        float[,] falloff = Noise.GenerateFalloffMap(width, height, 3.3f, false);
+
+        float[,] tempCurve = new float[width,height];
+
+        float minCurve = float.MaxValue;
+        float maxCurve = float.MinValue;
         for (int y = 0; y < height; y++){
             for (int x = 0; x < width; x++){
-                float equatorPos = worldSize.y / 2;
-                float tempValue = 1f - Mathf.Abs(equatorPos - y) / equatorPos;
-                tempValue = Mathf.Clamp(tempValue + tempOffset, 0f, 1f);
+                float y2 = y / (float)height;
+                float center = 0.5f;
+                //float slope = 0.25f;
+                tempCurve[x,y] = Mathf.Lerp(Mathf.Exp(-Mathf.Pow((y2 - center)/0.35f,2)), tempmap[x,y], 0.3f);
+                tempCurve[x,y] *= Mathf.Exp(-Mathf.Pow((y2 - center)/0.35f,2));
 
-                tempmap[x,y] *= tempValue;                
+                if (tempCurve[x,y] > maxCurve){
+                    maxCurve = tempCurve[x,y]; 
+                }
+                if (tempCurve[x,y] < minCurve){
+                    minCurve = tempCurve[x,y]; 
+                }
+            }
+        }
+        //float[,] falloff = Noise.GenerateFalloffMap(width, height, 3.3f, false);
+        for (int y = 0; y < height; y++){
+            for (int x = 0; x < width; x++){
+                
+                float tempValue = Mathf.InverseLerp(minCurve, maxCurve, tempCurve[x,y]);
+                //tempValue += tempmap[x,y] * 0.14f;
+
+                tempmap[x,y] = tempValue;                
             }
         }   
         return tempmap;
@@ -160,9 +174,13 @@ public class GenerateWorld : MonoBehaviour
         return null;
     }
     void generateWorld(){
-        heightmap = getHeightMap(worldSize.x, worldSize.y, totalNoiseScale);
-        tempmap = getTempMap(worldSize.x, worldSize.y, 20);
-        humidmap = getHumidMap(worldSize.x, worldSize.y, 5);
+        // Tectonics
+        Tectonics tectonics = GetComponent<Tectonics>();
+        tectonics.InitTectonicSimulation(this, worldSize.x, worldSize.y, 4, 4, 0.4f, preset.oceanThreshold);
+        heightmap = tectonics.RunTectonicSimulation(tectonicSteps);
+        //heightmap = getHeightMap(worldSize.x, worldSize.y, totalNoiseScale);
+        tempmap = getTempMap(worldSize.x, worldSize.y, 30);
+        humidmap = getHumidMap(worldSize.x, worldSize.y, totalNoiseScale*2);
 
         print(tempmap[50,0]);
             
@@ -416,6 +434,7 @@ public class GenerateWorld : MonoBehaviour
 
     HumidTypes getHumidType(int x, int y){
         float humid = humidmap[x,y];
+        //humid = 0;
         if ( humid < humids[6]){
             return  HumidTypes.SUPER_ARID;
         } else if (humid >= humids[6] && humid < humids[5]){
